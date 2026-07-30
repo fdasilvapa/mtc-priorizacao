@@ -42,14 +42,21 @@
 | `src/lib/supabase/client.ts` | Cliente Supabase para Client Components |
 | `src/lib/supabase/middleware.ts` | Helper de renovação de sessão |
 | `src/middleware.ts` | Middleware do Next: renova sessão, protege rotas |
-| `src/lib/roster.ts` | `getRoster()` — busca, pontua e ordena |
+| `src/lib/roster.ts` | `getRoster()` e `getUserChampion()` — busca, pontua e ordena |
+| `src/lib/champions.ts` | `getAvailableChampions()` — base menos o roster |
 | `src/app/actions/roster.ts` | Server Actions de mutação |
+| `src/app/actions/add-champion.ts` | Action de cadastro |
+| `src/app/actions/edit-champion.ts` | Actions de salvar e remover |
 | `src/app/login/page.tsx` | Tela de magic link |
 | `src/app/auth/confirm/route.ts` | Handler de callback do magic link |
+| `src/app/error.tsx` | Error boundary da aplicação |
 | `src/app/page.tsx` | Lista priorizada |
 | `src/components/ChampionCard.tsx` | Card de campeão |
+| `src/components/ChampionActions.tsx` | Rank up e favoritar, com estado otimista |
+| `src/components/ChampionFields.tsx` | Campos rank/sig/ascensão, compartilhados |
 | `src/components/RosterFilters.tsx` | Filtros (classe, rank, busca) |
 | `src/app/adicionar/page.tsx` | Tela de adicionar campeão |
+| `src/app/campeao/[id]/page.tsx` | Tela de editar campeão |
 
 ---
 
@@ -1915,7 +1922,354 @@ git commit -m "feat: add champion registration and roster filters"
 
 ---
 
-## Task 9: Deploy na Vercel
+## Task 9: Tela de edição do campeão
+
+**Files:**
+- Create: `src/components/ChampionFields.tsx`
+- Create: `src/app/campeao/[id]/page.tsx`
+- Create: `src/app/campeao/[id]/EditChampionForm.tsx`
+- Create: `src/app/actions/edit-champion.ts`
+- Modify: `src/lib/roster.ts` (acrescentar `getUserChampion`)
+- Modify: `src/app/adicionar/AddChampionForm.tsx` (passar a usar `ChampionFields`)
+- Modify: `src/components/ChampionCard.tsx` (nome vira link para a edição)
+
+**Interfaces:**
+- Consumes: `updateChampion()` e `removeChampion()` da Task 7, `MAX_RANK` da Task 2
+- Produces:
+  - `<ChampionFields defaults={{ currentRank: number; sigLevel: number; isAscended: boolean }} />`
+  - `getUserChampion(id: string): Promise<RosterChampion | null>` de `@/lib/roster`
+  - `saveChampion(prevState: EditState, formData: FormData): Promise<EditState>`
+  - `deleteChampion(formData: FormData): Promise<void>`
+  - `type EditState = { status: 'idle' | 'saved' | 'error'; message?: string }`
+
+**Por que agora e não na Task 8:** os campos rank/sig/ascendido são idênticos entre adicionar e editar. Extrair o componente compartilhado na *segunda* ocorrência — e não antecipadamente — evita projetar uma abstração antes de conhecer os dois usos.
+
+- [ ] **Step 1: Extrair os campos compartilhados**
+
+Arquivo `src/components/ChampionFields.tsx`:
+
+```tsx
+import { MAX_RANK } from '@/lib/scoring/config'
+
+const FIELD = 'w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-base'
+
+export type ChampionFieldDefaults = {
+  currentRank: number
+  sigLevel: number
+  isAscended: boolean
+}
+
+/**
+ * Campos comuns a adicionar e editar. Sem 'use client': sao inputs nao
+ * controlados, lidos pelo FormData da action que envolve o formulario.
+ */
+export function ChampionFields({ defaults }: { defaults: ChampionFieldDefaults }) {
+  return (
+    <>
+      <label className="block space-y-1">
+        <span className="text-sm text-neutral-400">Rank atual</span>
+        <select name="currentRank" defaultValue={defaults.currentRank} className={FIELD}>
+          {Array.from({ length: MAX_RANK }, (_, i) => i + 1).map((r) => (
+            <option key={r} value={r}>
+              R{r}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="block space-y-1">
+        <span className="text-sm text-neutral-400">Nivel de sig (0 a 200)</span>
+        <input
+          type="number"
+          name="sigLevel"
+          min={0}
+          max={200}
+          defaultValue={defaults.sigLevel}
+          inputMode="numeric"
+          className={FIELD}
+        />
+      </label>
+
+      <label className="flex items-center gap-3">
+        <input
+          type="checkbox"
+          name="isAscended"
+          defaultChecked={defaults.isAscended}
+          className="size-5"
+        />
+        <span className="text-sm">Ascendido</span>
+      </label>
+    </>
+  )
+}
+```
+
+- [ ] **Step 2: Fazer o formulário de adicionar usar os campos compartilhados**
+
+Em `src/app/adicionar/AddChampionForm.tsx`, remover os três blocos de rank, sig e ascendido, e substituir por:
+
+```tsx
+<ChampionFields defaults={{ currentRank: 1, sigLevel: 0, isAscended: false }} />
+```
+
+Acrescentar o import:
+
+```tsx
+import { ChampionFields } from '@/components/ChampionFields'
+```
+
+O `MAX_RANK` e a constante `FIELD` podem sair do arquivo se não forem mais usados — o `select` de campeão ainda usa `FIELD`, então mantenha essa constante.
+
+- [ ] **Step 3: Verificar que a tela de adicionar continua funcionando**
+
+Run: `bun run dev`
+
+Abrir `/adicionar` e cadastrar um campeão. Esperado: comportamento idêntico ao da Task 8 — a refatoração não muda nada visível.
+
+- [ ] **Step 4: Commit da refatoração**
+
+Commitar separado da funcionalidade nova, para que o diff da refatoração seja legível.
+
+```bash
+git add src/components/ChampionFields.tsx src/app/adicionar/AddChampionForm.tsx
+git commit -m "refactor: extract shared champion form fields"
+```
+
+- [ ] **Step 5: Acrescentar a busca de um campeão só**
+
+Em `src/lib/roster.ts`, acrescentar ao final:
+
+```ts
+/** Busca um campeao do roster pelo id. O RLS garante que so retorna o do dono. */
+export async function getUserChampion(id: string): Promise<RosterChampion | null> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('user_champions')
+    .select(`
+      id,
+      champion_id,
+      current_rank,
+      sig_level,
+      is_favorite,
+      is_ascended,
+      base_champions (
+        name,
+        champion_class,
+        attack_tier_score,
+        attack_recommended_sig
+      )
+    `)
+    .eq('id', id)
+    .maybeSingle<RosterRow>()
+
+  if (error) throw new Error(`Falha ao buscar o campeao: ${error.message}`)
+  if (!data || !data.base_champions) return null
+
+  return {
+    id: data.id,
+    championId: data.champion_id,
+    name: data.base_champions.name,
+    championClass: data.base_champions.champion_class,
+    attackTierScore: Number(data.base_champions.attack_tier_score),
+    attackRecommendedSig: data.base_champions.attack_recommended_sig,
+    currentRank: data.current_rank,
+    sigLevel: data.sig_level,
+    isFavorite: data.is_favorite,
+    isAscended: data.is_ascended,
+  }
+}
+```
+
+- [ ] **Step 6: Criar as actions de salvar e remover**
+
+Arquivo `src/app/actions/edit-champion.ts`:
+
+```ts
+'use server'
+
+import { redirect } from 'next/navigation'
+import { removeChampion, updateChampion } from './roster'
+
+export type EditState = { status: 'idle' | 'saved' | 'error'; message?: string }
+
+export async function saveChampion(
+  _prevState: EditState,
+  formData: FormData,
+): Promise<EditState> {
+  const id = String(formData.get('id') ?? '')
+  if (!id) return { status: 'error', message: 'Campeao invalido.' }
+
+  const currentRank = Number(formData.get('currentRank'))
+  const sigLevel = Number(formData.get('sigLevel'))
+  const isAscended = formData.get('isAscended') === 'on'
+
+  try {
+    await updateChampion(id, { currentRank, sigLevel, isAscended })
+    return { status: 'saved' }
+  } catch (error) {
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Falha ao salvar.',
+    }
+  }
+}
+
+export async function deleteChampion(formData: FormData) {
+  const id = String(formData.get('id') ?? '')
+  if (!id) return
+
+  await removeChampion(id)
+  redirect('/')
+}
+```
+
+- [ ] **Step 7: Criar o formulário de edição**
+
+Arquivo `src/app/campeao/[id]/EditChampionForm.tsx`:
+
+```tsx
+'use client'
+
+import { useActionState } from 'react'
+import { deleteChampion, saveChampion, type EditState } from '@/app/actions/edit-champion'
+import { ChampionFields } from '@/components/ChampionFields'
+import type { RosterChampion } from '@/lib/scoring/types'
+
+const INITIAL: EditState = { status: 'idle' }
+
+export function EditChampionForm({ champion }: { champion: RosterChampion }) {
+  const [state, formAction, pending] = useActionState(saveChampion, INITIAL)
+
+  return (
+    <div className="space-y-8">
+      <form action={formAction} className="space-y-4">
+        <input type="hidden" name="id" value={champion.id} />
+
+        <ChampionFields
+          defaults={{
+            currentRank: champion.currentRank,
+            sigLevel: champion.sigLevel,
+            isAscended: champion.isAscended,
+          }}
+        />
+
+        {state.status === 'error' && <p className="text-sm text-red-400">{state.message}</p>}
+        {state.status === 'saved' && (
+          <p className="text-sm text-emerald-400">Alteracoes salvas.</p>
+        )}
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="w-full rounded-lg bg-amber-500 px-4 py-3 font-semibold text-neutral-950 disabled:opacity-50"
+        >
+          {pending ? 'Salvando...' : 'Salvar alteracoes'}
+        </button>
+      </form>
+
+      <form action={deleteChampion}>
+        <input type="hidden" name="id" value={champion.id} />
+        <button type="submit" className="w-full py-2 text-sm text-red-400 underline">
+          Remover do roster
+        </button>
+      </form>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 8: Criar a página de edição**
+
+Arquivo `src/app/campeao/[id]/page.tsx`:
+
+```tsx
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { CLASS_COLORS } from '@/components/ChampionCard'
+import { getUserChampion } from '@/lib/roster'
+import { EditChampionForm } from './EditChampionForm'
+
+export default async function ChampionPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const champion = await getUserChampion(id)
+
+  if (!champion) notFound()
+
+  return (
+    <main className="mx-auto max-w-md p-4">
+      <Link href="/" className="text-sm text-neutral-400 underline">
+        Voltar
+      </Link>
+
+      <header className="my-6 space-y-2">
+        <h1 className="text-2xl font-bold">{champion.name}</h1>
+        <span
+          className={`inline-block rounded-full px-2 py-0.5 text-xs ring-1 ${
+            CLASS_COLORS[champion.championClass]
+          }`}
+        >
+          {champion.championClass}
+        </span>
+      </header>
+
+      <EditChampionForm champion={champion} />
+    </main>
+  )
+}
+```
+
+- [ ] **Step 9: Ligar o card à página**
+
+Em `src/components/ChampionCard.tsx`, importar o `Link` e transformar o nome em link:
+
+```tsx
+import Link from 'next/link'
+```
+
+Trocar o `<h2>` por:
+
+```tsx
+        <h2 className="truncate font-semibold">
+          <Link href={`/campeao/${champion.id}`} className="hover:underline">
+            {champion.name}
+          </Link>
+        </h2>
+```
+
+- [ ] **Step 10: Testar manualmente**
+
+Run: `bun run dev`
+
+1. Clicar no nome de um campeão na lista → abre `/campeao/<id>` com os valores atuais preenchidos.
+2. Mudar o sig e salvar → aparece "Alteracoes salvas".
+3. Voltar para `/` → o score do campeão mudou e a ordenação refletiu.
+4. Marcar "Ascendido" e salvar → o card passa a exibir o selo e o score sobe.
+5. Remover do roster → volta para `/` sem o campeão, e ele reaparece no select de `/adicionar`.
+6. Acessar `/campeao/00000000-0000-0000-0000-000000000000` → página 404, **não** erro de servidor.
+
+- [ ] **Step 11: Rodar a verificação**
+
+```bash
+bun test
+bun run lint
+bun run build
+```
+
+- [ ] **Step 12: Commit**
+
+```bash
+git add src/app/campeao/ src/app/actions/edit-champion.ts src/lib/roster.ts src/components/ChampionCard.tsx
+git commit -m "feat: add champion edit page"
+```
+
+---
+
+## Task 10: Deploy na Vercel
 
 **Files:**
 - Modify: `README.md` (marcar o checklist e documentar o setup)
@@ -2005,4 +2359,5 @@ Consciente, conforme a seção 8 do spec:
 - Tier list de defesa e campeões híbridos
 - Inventário de catalisadores
 - Pesos ajustáveis pela UI
-- Modal de edição completo (sig/ascensão/remover) — a Task 7 entrega `updateChampion` e `removeChampion` como Server Actions **testadas em uso pelas outras telas, mas sem UI própria**. Se você quiser editar sig depois de cadastrar, essa tela é o próximo incremento natural.
+- Múltiplos usuários / compartilhamento com aliança
+- Campeões de outras raridades
