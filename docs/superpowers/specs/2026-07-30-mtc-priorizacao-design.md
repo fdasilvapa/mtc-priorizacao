@@ -154,8 +154,8 @@ O ouro é omitido de propósito: varia só ~1,5× entre R1 e R4, enquanto a difi
 
 ```ts
 export const CATALYST_SCARCITY = {
-  alphaT3: 1,  alphaT4: 4,  alphaT5: 20,
-  basicT6: 0.5, basicT7: 3,
+  alphaT3: 1,   alphaT4: 4,   alphaT5: 30,
+  basicT6: 0.5, basicT7: 5,
   classT5: 0.5, classT6: 2,
 }
 
@@ -163,9 +163,13 @@ export const CATALYST_SCARCITY = {
 export const COST_DAMPENING = 0.5
 ```
 
-Custos relativos resultantes: **R1 = 1,00 · R2 = 1,78 · R3 = 2,46 · R4 = 5,37**. Com `COST_DAMPENING = 0,5`, um R4 tem o score dividido por ~2,3 — penalizado o suficiente para refletir o gargalo do Alpha T5, sem sumir da lista.
+Custos relativos resultantes: **R1 = 1,00 · R2 = 1,78 · R3 = 2,76 · R4 = 7,22**. Com `COST_DAMPENING = 0,5`, um R4 tem o score dividido por ~2,7 — penalizado o suficiente para refletir o gargalo do Alpha T5, sem sumir da lista.
 
-Todos esses números são pontos de calibração, e a validação real só vem na fatia 4, com o roster na tela.
+**Origem destes números — leia antes de recalibrar.** Não são dados medidos. Uma busca por taxas de aquisição por perfil de conta não encontrou fonte confiável; o que existe publicado é custo em fragmentos (T5 Alpha = 63.000, T6 Class = 57.000), que foi **descartado** como base porque fragmentos não são comparáveis entre tipos — cada um cai em quantidade diferente por fonte, e a razão sugeriria que T5 Alpha ≈ T6 Class, o que é falso.
+
+A escala reflete o perfil de jogo do usuário: Valiant, rotina de evento mensal, side quests e exploração do Ato 9, **sem Battlegrounds nem Guerras de Aliança**. Como BG e AW são as fontes recorrentes de catalisador de tier alto, o T5 Alpha e o T7 Basic pesam mais aqui do que pesariam para uma conta que joga esses modos. **Se essa rotina mudar, `CATALYST_SCARCITY` é a primeira constante a revisar.**
+
+Validação real só na fatia 4, com o roster na tela.
 
 ---
 
