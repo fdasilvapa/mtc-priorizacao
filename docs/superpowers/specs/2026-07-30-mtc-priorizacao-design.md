@@ -25,6 +25,8 @@ O sistema calcula um *Priority Score* por campeão do roster e exibe a lista ord
 | Inventário de catalisadores | **Fora do escopo da v1** | Exigiria atualização manual constante |
 | Onde o score é calculado | TypeScript no servidor, função pura | Testável sem banco; pesos versionados; roster é pequeno |
 | Custo entra como | **Divisor** do score final, não parcela da soma | Custo e rank puxam na mesma direção; somar dobraria o efeito |
+| Custo no config | Vetor real de catalisadores + peso de escassez por tipo | Rastreável até a planilha de origem; recalibra sem refazer conta no papel |
+| `MAX_RANK` | **5** | O 5→6 não existe no jogo hoje |
 | `recommended_sig` | Migrar de ENUM para `SMALLINT` | Comparação aritmética direta com `sig_level`; elimina mapa enum→int |
 
 ---
@@ -94,7 +96,7 @@ Cada fator normaliza para `0..1` antes da ponderação — sem isso o `attack_ti
 | Fator | Fórmula | Faixa |
 |---|---|---|
 | `S_tier` | `attack_tier_score / 10` | 0..1 |
-| `S_rank` | `(MAX_RANK - current_rank) / (MAX_RANK - 1)` | R1 = 1.0, R6 = 0 |
+| `S_rank` | `(MAX_RANK - current_rank) / (MAX_RANK - 1)` | R1 = 1.0, R5 = 0 |
 | `S_class` | `maxCount === 0 ? 0 : (maxCount - classCount) / maxCount` | Classe mais carente = 1.0 |
 | `S_sig` | `rec === 0 ? 1 : min(1, sig_level / rec)` | 0..1 |
 | `S_fav` | `is_favorite ? 1 : 0` | 0 ou 1 |
@@ -108,8 +110,11 @@ Onde `classCount` = número de campeões da classe com `current_rank >= CLASS_RA
 weighted = W_tier·S_tier + W_rank·S_rank + W_class·S_class
          + W_sig·S_sig + W_fav·S_fav + W_asc·S_asc
 
-score    = weighted / (RANK_UP_COST[current_rank] ^ COST_DAMPENING)
+cost     = Σ (quantidade[catalisador] · CATALYST_SCARCITY[catalisador])
+score    = weighted / ((cost / costOfRank1) ^ COST_DAMPENING)
 ```
+
+O custo é normalizado pelo rank up mais barato (1→2), então o divisor vale 1,0 para um R1 e cresce a partir dali.
 
 Campeões em `MAX_RANK` não têm próximo rank up: recebem `score = 0` e são marcados como `maxed`, indo para o fim da lista.
 
@@ -125,17 +130,42 @@ export const WEIGHTS = {
   asc:   0.05,
 } // soma 1.0
 
-export const MAX_RANK = 6
+// O 5→6 não existe no jogo hoje ("Currently Impossible").
+// Quando a Kabam liberar, é trocar este número e acrescentar a linha em RANK_UP_COST.
+export const MAX_RANK = 5
+
 export const CLASS_RANK_THRESHOLD = 3   // R3+ conta como "evoluído"
-
-// Custo relativo do rank up a partir do rank N. Ordem de grandeza, não valor exato.
-export const RANK_UP_COST = { 1: 1, 2: 2, 3: 5, 4: 12, 5: 30 }
-
-// Amortece o divisor: 0 ignora custo, 1 aplica cheio.
-export const COST_DAMPENING = 0.25
 ```
 
-Todos são pontos de calibração. `COST_DAMPENING` em 0.25 evita que R4/R5 desapareçam da lista — com ele, um R5 custando 30× vê o score dividido por ~2,3, não por 30.
+**Custo do rank up 7★** — transcrito de planilha comunitária, quantidade por catalisador:
+
+```ts
+export const RANK_UP_COST = {
+  1: { alphaT3: 7, basicT6: 7, classT5: 4, classT6: 4 },
+  2: { alphaT3: 8, alphaT4: 3, basicT6: 8, classT5: 5, classT6: 5 },
+  3: { alphaT3: 9, alphaT4: 4, basicT6: 9, basicT7: 3, classT6: 6 },
+  4: { alphaT4: 6, alphaT5: 3, basicT7: 4, classT6: 7 },
+}
+```
+
+O ouro é omitido de propósito: varia só ~1,5× entre R1 e R4, enquanto a dificuldade real dispara. Incluí-lo diluiria o sinal.
+
+**Escassez relativa por catalisador** — o ponto de calibração principal deste fator:
+
+```ts
+export const CATALYST_SCARCITY = {
+  alphaT3: 1,  alphaT4: 4,  alphaT5: 20,
+  basicT6: 0.5, basicT7: 3,
+  classT5: 0.5, classT6: 2,
+}
+
+// Amortece o divisor: 0 ignora custo, 1 aplica cheio.
+export const COST_DAMPENING = 0.5
+```
+
+Custos relativos resultantes: **R1 = 1,00 · R2 = 1,78 · R3 = 2,46 · R4 = 5,37**. Com `COST_DAMPENING = 0,5`, um R4 tem o score dividido por ~2,3 — penalizado o suficiente para refletir o gargalo do Alpha T5, sem sumir da lista.
+
+Todos esses números são pontos de calibração, e a validação real só vem na fatia 4, com o roster na tela.
 
 ---
 
@@ -145,8 +175,9 @@ Todos são pontos de calibração. `COST_DAMPENING` em 0.25 evita que R4/R5 desa
 
 Núcleo puro: sem React, sem Supabase, sem I/O.
 
-- **`config.ts`** — pesos, limiares, tabela de custo
-- **`types.ts`** — `ScoredChampion`, `RosterContext`
+- **`config.ts`** — pesos, limiares, vetor de custo, escassez por catalisador
+- **`types.ts`** — `ScoredChampion`, `RosterContext`, `CatalystCost`
+- **`cost.ts`** — `collapseCost(rank): number`, que colapsa o vetor de catalisadores num escalar normalizado pelo custo do R1. Isolado do `score.ts` porque é a peça que mais vai mudar quando a Kabam mexer nos custos
 - **`score.ts`** — `calculatePriorityScore(champion, context): number` e `buildRosterContext(roster): RosterContext` (calcula a contagem R3+ por classe **uma vez** para o roster inteiro)
 - **`score.test.ts`** — via `bun test`
 
@@ -158,8 +189,9 @@ Casos de teste obrigatórios:
 4. Favorito supera não-favorito, mantido o resto igual
 5. Ascendido supera não-ascendido, mantido o resto igual
 6. `maxCount === 0` não quebra e zera `S_class` para todos
-7. Campeão em `MAX_RANK` recebe score 0 e é marcado `maxed`
+7. Campeão em `MAX_RANK` (R5) recebe score 0 e é marcado `maxed`
 8. **Custo não afunda R4:** um R4 de tier 10 ainda aparece acima de um R1 de tier 6
+9. `collapseCost` devolve exatamente 1,0 para o rank 1 (é a referência de normalização) e cresce monotonicamente até o rank 4
 
 ### 5.2 Acesso a dados — `src/lib/supabase/`
 
@@ -197,7 +229,7 @@ Mobile-first, desktop como progressive enhancement.
 
 - **Action falha** → estado otimista reverte e um toast informa; o dado no servidor é a verdade
 - **Campeão duplicado no roster** → constraint `UNIQUE (user_id, champion_id)`; a UI trata como "já cadastrado" em vez de erro cru
-- **Rank up em `MAX_RANK`** → botão desabilitado no card *e* validação na action (a UI não é a defesa)
+- **Rank up em `MAX_RANK`** → botão desabilitado no card *e* validação na action (a UI não é a defesa). O `CHECK` do banco aceita até 6 por antecipação; quem barra em 5 é a aplicação, via `MAX_RANK`
 - **Sessão expirada** → middleware redireciona para `/login`
 - **`base_champions` vazia** → estado vazio explicando que o seed não rodou, não uma tela em branco
 
