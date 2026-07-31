@@ -64,3 +64,43 @@ export async function getRoster(): Promise<ScoredChampion[]> {
 
   return scoreRoster(roster)
 }
+
+/** Busca um campeao do roster pelo id. O RLS garante que so retorna o do dono. */
+export async function getUserChampion(id: string): Promise<RosterChampion | null> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('user_champions')
+    .select(`
+      id,
+      champion_id,
+      current_rank,
+      sig_level,
+      is_favorite,
+      is_ascended,
+      base_champions (
+        name,
+        champion_class,
+        attack_tier_score,
+        attack_recommended_sig
+      )
+    `)
+    .eq('id', id)
+    .maybeSingle<RosterRow>()
+
+  if (error) throw new Error(`Falha ao buscar o campeao: ${error.message}`)
+  if (!data || !data.base_champions) return null
+
+  return {
+    id: data.id,
+    championId: data.champion_id,
+    name: data.base_champions.name,
+    championClass: data.base_champions.champion_class,
+    attackTierScore: Number(data.base_champions.attack_tier_score),
+    attackRecommendedSig: data.base_champions.attack_recommended_sig,
+    currentRank: data.current_rank,
+    sigLevel: data.sig_level,
+    isFavorite: data.is_favorite,
+    isAscended: data.is_ascended,
+  }
+}

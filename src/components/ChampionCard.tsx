@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { McocClass, ScoredChampion } from '@/lib/scoring/types'
 import { ChampionActions } from './ChampionActions'
 
@@ -20,7 +21,11 @@ export function ChampionCard({ champion }: { champion: ScoredChampion }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate font-semibold">{champion.name}</h2>
+          <h2 className="truncate font-semibold">
+            <Link href={`/campeao/${champion.id}`} className="hover:underline">
+              {champion.name}
+            </Link>
+          </h2>
           <span
             className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ring-1 ${
               CLASS_COLORS[champion.championClass]
