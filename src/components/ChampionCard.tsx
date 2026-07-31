@@ -22,7 +22,11 @@ export function ChampionCard({ champion }: { champion: ScoredChampion }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="truncate font-semibold">
-            <Link href={`/campeao/${champion.id}`} className="hover:underline">
+            <Link
+              href={`/campeao/${champion.id}`}
+              title={`Editar ${champion.name}`}
+              className="underline decoration-dotted decoration-neutral-600 underline-offset-4 transition-colors hover:text-amber-400 hover:decoration-amber-400"
+            >
               {champion.name}
             </Link>
           </h2>
