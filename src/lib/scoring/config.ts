@@ -47,4 +47,4 @@ export const CATALYST_SCARCITY: Record<CatalystKey, number> = {
 }
 
 /** Amortece o divisor de custo: 0 ignora custo, 1 aplica cheio. */
-export const COST_DAMPENING = 0.5
+export const COST_DAMPENING = 0.02
