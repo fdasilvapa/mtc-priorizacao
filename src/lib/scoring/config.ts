@@ -1,13 +1,29 @@
 import type { CatalystCost, CatalystKey } from './types'
 
-/** Pesos da media ponderada. Somam 1.0. */
+/**
+ * Pesos da media ponderada. Somam 1.0.
+ *
+ * Calibrados contra a tier list real (326 campeoes, 8 faixas). Com
+ * TIER_SCORE_FLOOR = 7, uma faixa de tier (0,5 de nota) vale 0.075 no termo
+ * ponderado — a referencia para dimensionar todo o resto:
+ *
+ *   asc 0.08  ascender vale uma faixa de tier e um fio a mais. E o unico
+ *             fator que vence tier no empate curto, de proposito: ascensao
+ *             virou um salto de poder real no jogo.
+ *   sig 0.07  abaixo de uma faixa. Nao pode ser mais: 87 dos 326 campeoes
+ *             tem sig_recomendado = 0 e levam nota cheia de graca.
+ *   fav 0.05  desempate deliberado do dono, sem forca para inverter tier.
+ *
+ * Nenhuma combinacao de fav + asc + sig (0.20) alcanca dois pontos de nota
+ * (0.30). A tier list continua mandando.
+ */
 export const WEIGHTS = {
   tier: 0.45,
   rank: 0.20,
   class: 0.15,
-  sig: 0.10,
+  sig: 0.07,
   fav: 0.05,
-  asc: 0.05,
+  asc: 0.08,
 } as const
 
 /**
@@ -21,6 +37,18 @@ export const CLASS_RANK_THRESHOLD = 3
 
 /** Nota maxima da tier list, usada para normalizar S_tier. */
 export const MAX_TIER_SCORE = 10
+
+/**
+ * Piso da normalizacao de S_tier. Ancorar em zero seria medir a nota contra
+ * um valor que nunca ocorre: campeao que se cogita subir vive entre 8 e 10,
+ * ou seja, entre 0,80 e 1,00 — tier gastaria 20% da propria faixa e entregaria
+ * 0.09 de amplitude real, menos que sig e menos que classe, apesar do peso 0.45.
+ *
+ * Em 7, as faixas Mediocre e Awful da tier list zeram as duas. Nao e perda:
+ * nenhuma delas e candidata a rank up, e isso torna irrelevante como colapsar
+ * as notas em intervalo ("6,5-5", "4-1") num numero so.
+ */
+export const TIER_SCORE_FLOOR = 7
 
 /** Custo de catalisadores para subir A PARTIR do rank N (7 estrelas). */
 export const RANK_UP_COST: Record<number, CatalystCost> = {
