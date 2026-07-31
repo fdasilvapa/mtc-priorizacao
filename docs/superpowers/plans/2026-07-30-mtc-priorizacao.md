@@ -31,6 +31,7 @@
 | `supabase/migrations/001_add_is_ascended.sql` | Coluna `is_ascended` |
 | `supabase/migrations/002_recommended_sig_to_int.sql` | Enum → SMALLINT + CHECK, drop do tipo |
 | `supabase/migrations/003_unique_roster.sql` | `UNIQUE (user_id, champion_id)` |
+| `supabase/migrations/004_not_null_score_columns.sql` | NOT NULL nas colunas que o score consome |
 | `supabase/seed_dev.sql` | 10 campeões de amostra para desenvolvimento |
 | `src/lib/scoring/types.ts` | Tipos do domínio de pontuação |
 | `src/lib/scoring/config.ts` | Pesos, limiares, custo, escassez |
@@ -66,10 +67,11 @@
 - Create: `supabase/migrations/001_add_is_ascended.sql`
 - Create: `supabase/migrations/002_recommended_sig_to_int.sql`
 - Create: `supabase/migrations/003_unique_roster.sql`
+- Create: `supabase/migrations/004_not_null_score_columns.sql`
 
 **Interfaces:**
 - Consumes: nada
-- Produces: schema com `user_champions.is_ascended BOOLEAN NOT NULL DEFAULT false`, `base_champions.attack_recommended_sig SMALLINT`, `base_champions.defense_recommended_sig SMALLINT`, constraint `user_champions_unique`
+- Produces: schema com `user_champions.is_ascended BOOLEAN NOT NULL DEFAULT false`, `base_champions.attack_recommended_sig SMALLINT NOT NULL`, `base_champions.defense_recommended_sig SMALLINT NOT NULL`, `user_champions.is_favorite BOOLEAN NOT NULL DEFAULT false`, `base_champions.attack_tier_score NUMERIC NOT NULL`, constraint `user_champions_unique`
 
 **Contexto:** As tabelas e o RLS já existem no Supabase. A `base_champions` está **vazia** (o seed ainda não rodou), por isso a conversão de tipo não precisa migrar dado nenhum.
 
@@ -131,6 +133,36 @@ ALTER TABLE user_champions
   ADD CONSTRAINT user_champions_unique UNIQUE (user_id, champion_id);
 ```
 
+- [ ] **Step 3b: Criar a migration que elimina os nullables do score**
+
+Arquivo `supabase/migrations/004_not_null_score_columns.sql`:
+
+```sql
+-- Colunas consumidas pelo Priority Score nao podem ser nulas.
+-- attack_recommended_sig nulo produz NaN: o teste `=== 0` falha e a
+-- divisao `sigLevel / null` vira NaN, que contamina a ordenacao inteira
+-- sem lancar erro nenhum.
+UPDATE base_champions SET attack_tier_score      = 0 WHERE attack_tier_score      IS NULL;
+UPDATE base_champions SET attack_recommended_sig = 0 WHERE attack_recommended_sig IS NULL;
+UPDATE base_champions SET defense_tier_score      = 0 WHERE defense_tier_score      IS NULL;
+UPDATE base_champions SET defense_recommended_sig = 0 WHERE defense_recommended_sig IS NULL;
+UPDATE user_champions SET is_favorite = false WHERE is_favorite IS NULL;
+
+ALTER TABLE base_champions
+  ALTER COLUMN attack_tier_score       SET DEFAULT 0,
+  ALTER COLUMN attack_tier_score       SET NOT NULL,
+  ALTER COLUMN attack_recommended_sig  SET NOT NULL,
+  ALTER COLUMN defense_tier_score      SET DEFAULT 0,
+  ALTER COLUMN defense_tier_score      SET NOT NULL,
+  ALTER COLUMN defense_recommended_sig SET NOT NULL;
+
+ALTER TABLE user_champions
+  ALTER COLUMN is_favorite SET DEFAULT false,
+  ALTER COLUMN is_favorite SET NOT NULL;
+```
+
+Com estas garantias no banco, os tipos não-opcionais de `RosterChampion` (Task 2) refletem a realidade, e `getRoster()` (Task 6) não precisa de defesa contra nulo em cada campo.
+
 - [ ] **Step 4: Aplicar no Supabase (passo manual do usuário)**
 
 **Se o usuário já aplicou estas migrations antes de iniciar o plano, pule este step e vá direto ao Step 5 para confirmar o schema.** Os arquivos dos steps anteriores existem para versionar o que foi aplicado.
@@ -160,7 +192,28 @@ WHERE table_name IN ('base_champions', 'user_champions')
 ORDER BY table_name, column_name;
 ```
 
-Esperado: `attack_recommended_sig` e `defense_recommended_sig` como `smallint`; `is_ascended` como `boolean` com default `false`.
+Esperado: `attack_recommended_sig` e `defense_recommended_sig` como `smallint`; `is_ascended` como `boolean` com default `false`. Nenhuma das colunas consumidas pelo score pode aparecer como `is_nullable = YES`:
+
+```sql
+SELECT table_name, column_name
+FROM information_schema.columns
+WHERE is_nullable = 'YES'
+  AND (
+    (table_name = 'base_champions' AND column_name LIKE '%_tier_score' OR column_name LIKE '%_recommended_sig')
+    OR (table_name = 'user_champions' AND column_name IN ('is_favorite', 'is_ascended', 'current_rank', 'sig_level'))
+  );
+```
+
+Esperado: zero linhas.
+
+Confirmar também a constraint de unicidade, que o Schema Visualizer não exibe:
+
+```sql
+SELECT conname FROM pg_constraint
+WHERE conrelid = 'user_champions'::regclass AND contype = 'u';
+```
+
+Esperado: `user_champions_unique`.
 
 - [ ] **Step 6: Commit**
 
