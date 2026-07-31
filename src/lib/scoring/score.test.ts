@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { COST_DAMPENING, MAX_RANK, MAX_TIER_SCORE, WEIGHTS } from './config'
+import { COST_DAMPENING, MAX_RANK, WEIGHTS } from './config'
 import { collapseCost } from './cost'
-import { buildRosterContext, calculatePriorityScore, scoreRoster } from './score'
+import {
+  buildRosterContext,
+  calculatePriorityScore,
+  normalizeTier,
+  scoreRoster,
+} from './score'
 import type { McocClass, RosterChampion, RosterContext } from './types'
 
 /** Campeao base; cada teste sobrescreve so o que importa. */
@@ -28,7 +33,7 @@ const semContexto = buildRosterContext([])
  * pelo custo. Serve para isolar o efeito do divisor de custo nos testes.
  */
 function weightedOf(champion: RosterChampion, context: RosterContext): number {
-  const sTier = champion.attackTierScore / MAX_TIER_SCORE
+  const sTier = normalizeTier(champion.attackTierScore)
   const sRank = (MAX_RANK - champion.currentRank) / (MAX_RANK - 1)
 
   const sClass =
@@ -159,5 +164,89 @@ describe('scoreRoster', () => {
 
   test('roster vazio devolve lista vazia', () => {
     expect(scoreRoster([])).toEqual([])
+  })
+})
+
+/**
+ * Invariantes da calibragem contra a tier list real. Sao afirmacoes sobre a
+ * RELACAO entre os fatores, nao sobre valores absolutos: os pesos podem mudar
+ * desde que a hierarquia continue de pe.
+ *
+ * A unidade de referencia e a faixa da tier list — 0,5 de nota, a distancia
+ * entre duas faixas vizinhas da fonte (Incredible 9,5 -> Top of the Class 10).
+ */
+describe('calibragem: hierarquia dos fatores', () => {
+  const faixa = WEIGHTS.tier * (normalizeTier(10) - normalizeTier(9.5))
+  const ponto = WEIGHTS.tier * (normalizeTier(10) - normalizeTier(9))
+
+  test('a nota e ancorada num piso, nao em zero', () => {
+    expect(normalizeTier(10)).toBe(1)
+    // Duas faixas abaixo do topo ja custam metade da escala; com nota/10
+    // custariam 10%, o que esvaziava o peso de tier na faixa util.
+    expect(normalizeTier(8.5)).toBeCloseTo(0.5, 10)
+    // Mediocre e Awful colapsam no piso: nao sao candidatos a rank up.
+    expect(normalizeTier(5.75)).toBe(0)
+    expect(normalizeTier(2.5)).toBe(0)
+  })
+
+  test('favoritar nao inverte uma faixa de tier', () => {
+    expect(WEIGHTS.fav).toBeLessThan(faixa)
+  })
+
+  test('o sig cheio nao inverte uma faixa de tier', () => {
+    expect(WEIGHTS.sig).toBeLessThan(faixa)
+  })
+
+  test('ascender vence uma faixa de tier, mas nao um ponto inteiro de nota', () => {
+    expect(WEIGHTS.asc).toBeGreaterThan(faixa)
+    expect(WEIGHTS.asc).toBeLessThan(ponto)
+  })
+
+  test('favorito + ascendido juntos nao alcancam um ponto inteiro de nota', () => {
+    expect(WEIGHTS.fav + WEIGHTS.asc).toBeLessThan(ponto)
+  })
+
+  test('somando o sig, os tres nao alcancam dois pontos de nota', () => {
+    const doisPontos = WEIGHTS.tier * (normalizeTier(10) - normalizeTier(8))
+    expect(WEIGHTS.fav + WEIGHTS.asc + WEIGHTS.sig).toBeLessThan(doisPontos)
+  })
+
+  test('na pratica: Incredible ascendido passa Top of the Class puro', () => {
+    const [primeiro] = scoreRoster([
+      champ({ id: 'top', attackTierScore: 10 }),
+      champ({ id: 'ascendido', attackTierScore: 9.5, isAscended: true }),
+    ])
+    expect(primeiro.id).toBe('ascendido')
+  })
+
+  test('na pratica: Fantastic ascendido e favoritado NAO passa Top of the Class puro', () => {
+    const [primeiro] = scoreRoster([
+      champ({ id: 'top', attackTierScore: 10 }),
+      champ({ id: 'turbinado', attackTierScore: 9, isAscended: true, isFavorite: true }),
+    ])
+    expect(primeiro.id).toBe('top')
+  })
+
+  test('na pratica: sig zerado nao derruba um Top of the Class abaixo de um Very Good', () => {
+    const [primeiro] = scoreRoster([
+      champ({ id: 'top', attackTierScore: 10, attackRecommendedSig: 200, sigLevel: 0 }),
+      champ({ id: 'vg', attackTierScore: 8, attackRecommendedSig: 0 }),
+    ])
+    expect(primeiro.id).toBe('top')
+  })
+
+  test('os pesos somam 1', () => {
+    const soma = Object.values(WEIGHTS).reduce((a, b) => a + b, 0)
+    expect(soma).toBeCloseTo(1, 10)
+  })
+
+  test('pontuar nao depende do contexto de classe para valer a hierarquia', () => {
+    // Guarda contra alguem reintroduzir dependencia de contexto nos bonus.
+    const a = calculatePriorityScore(champ({ attackTierScore: 10 }), semContexto)
+    const b = calculatePriorityScore(
+      champ({ attackTierScore: 9.5, isAscended: true }),
+      semContexto,
+    )
+    expect(b).toBeGreaterThan(a)
   })
 })

@@ -3,6 +3,7 @@ import {
   COST_DAMPENING,
   MAX_RANK,
   MAX_TIER_SCORE,
+  TIER_SCORE_FLOOR,
   WEIGHTS,
 } from './config'
 import { collapseCost } from './cost'
@@ -31,6 +32,15 @@ export function buildRosterContext(roster: RosterChampion[]): RosterContext {
 }
 
 /**
+ * Nota da tier list em 0..1, ancorada em TIER_SCORE_FLOOR e nao em zero.
+ * Tudo no piso ou abaixo dele colapsa em 0 — ver o comentario da constante.
+ */
+export function normalizeTier(attackTierScore: number): number {
+  const span = MAX_TIER_SCORE - TIER_SCORE_FLOOR
+  return Math.max(0, Math.min(1, (attackTierScore - TIER_SCORE_FLOOR) / span))
+}
+
+/**
  * Media ponderada dos fatores, dividida pelo custo amortecido do proximo
  * rank up. Campeoes no rank maximo devolvem 0 — nao ha para onde subir.
  */
@@ -40,7 +50,7 @@ export function calculatePriorityScore(
 ): number {
   if (champion.currentRank >= MAX_RANK) return 0
 
-  const sTier = champion.attackTierScore / MAX_TIER_SCORE
+  const sTier = normalizeTier(champion.attackTierScore)
   const sRank = (MAX_RANK - champion.currentRank) / (MAX_RANK - 1)
 
   const sClass =
