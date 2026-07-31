@@ -1,4 +1,5 @@
 import type { McocClass, ScoredChampion } from '@/lib/scoring/types'
+import { ChampionActions } from './ChampionActions'
 
 /** Cores de classe do MCOC — identidade visual reconhecivel de relance. */
 export const CLASS_COLORS: Record<McocClass, string> = {
@@ -49,6 +50,12 @@ export function ChampionCard({ champion }: { champion: ScoredChampion }) {
         {champion.isFavorite && <div><span className="text-amber-400">Favorito</span></div>}
         {champion.maxed && <div><span className="text-neutral-500">Rank maximo</span></div>}
       </dl>
+
+      <ChampionActions
+        id={champion.id}
+        currentRank={champion.currentRank}
+        isFavorite={champion.isFavorite}
+      />
     </article>
   )
 }
