@@ -6,7 +6,7 @@
 -- autoritativas nao estao disponiveis para este autor, e adivinha-las
 -- seria pior do que deixar a lacuna documentada). Este arquivo nao recria
 -- as tabelas; ele apenas torna explicito e reproduzivel o boundary de RLS
--- que ja existe no banco em producao, para que parar de depender de estado
+-- que ja existe no banco em producao, para parar de depender de estado
 -- nao versionado.
 --
 -- Idempotente: reexecutar contra o banco vivo e um no-op; em um projeto
@@ -19,6 +19,10 @@ ALTER TABLE user_champions ENABLE ROW LEVEL SECURITY;
 -- WITH CHECK explicito (igual ao USING) para deixar a garantia de escrita
 -- na pagina, mesmo que para FOR ALL sem WITH CHECK o Postgres ja aplique
 -- o USING tambem as novas linhas.
+-- O banco vivo tem essa mesma policy sob um nome antigo, criado a mao no
+-- dashboard. Sem remove-lo, as duas coexistiriam (permissivas, com a mesma
+-- expressao — sem brecha, mas confuso de auditar).
+DROP POLICY IF EXISTS "Usuário gerencia apenas seus próprios campeões" ON user_champions;
 DROP POLICY IF EXISTS "Usuario acessa apenas o proprio roster" ON user_champions;
 CREATE POLICY "Usuario acessa apenas o proprio roster"
   ON user_champions
