@@ -54,10 +54,16 @@ export async function toggleFavorite(userChampionId: string, next: boolean) {
 }
 
 export async function updateChampion(userChampionId: string, patch: ChampionPatch) {
-  if (patch.currentRank !== undefined && (patch.currentRank < 1 || patch.currentRank > MAX_RANK)) {
+  if (
+    patch.currentRank !== undefined &&
+    (!Number.isInteger(patch.currentRank) || patch.currentRank < 1 || patch.currentRank > MAX_RANK)
+  ) {
     throw new Error(`Rank deve estar entre 1 e ${MAX_RANK}`)
   }
-  if (patch.sigLevel !== undefined && (patch.sigLevel < 0 || patch.sigLevel > 200)) {
+  if (
+    patch.sigLevel !== undefined &&
+    (!Number.isInteger(patch.sigLevel) || patch.sigLevel < 0 || patch.sigLevel > 200)
+  ) {
     throw new Error('Sig deve estar entre 0 e 200')
   }
 
