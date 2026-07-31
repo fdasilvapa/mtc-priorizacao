@@ -45,9 +45,9 @@ export function ChampionCard({ champion }: { champion: ScoredChampion }) {
           <dt>Sig</dt>
           <dd className="font-medium text-neutral-200">{champion.sigLevel}</dd>
         </div>
-        {champion.isAscended && <span className="text-amber-400">Ascendido</span>}
-        {champion.isFavorite && <span className="text-amber-400">Favorito</span>}
-        {champion.maxed && <span className="text-neutral-500">Rank maximo</span>}
+        {champion.isAscended && <div><span className="text-amber-400">Ascendido</span></div>}
+        {champion.isFavorite && <div><span className="text-amber-400">Favorito</span></div>}
+        {champion.maxed && <div><span className="text-neutral-500">Rank maximo</span></div>}
       </dl>
     </article>
   )
