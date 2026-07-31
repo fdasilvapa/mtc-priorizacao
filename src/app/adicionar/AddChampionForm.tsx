@@ -2,8 +2,8 @@
 
 import { useActionState } from 'react'
 import { addChampion, type AddState } from '@/app/actions/add-champion'
+import { ChampionFields } from '@/components/ChampionFields'
 import type { AvailableChampion } from '@/lib/champions'
-import { MAX_RANK } from '@/lib/scoring/config'
 
 const INITIAL: AddState = { status: 'idle' }
 
@@ -28,34 +28,7 @@ export function AddChampionForm({ champions }: { champions: AvailableChampion[] 
         </select>
       </label>
 
-      <label className="block space-y-1">
-        <span className="text-sm text-neutral-400">Rank atual</span>
-        <select name="currentRank" defaultValue="1" className={FIELD}>
-          {Array.from({ length: MAX_RANK }, (_, i) => i + 1).map((r) => (
-            <option key={r} value={r}>
-              R{r}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="block space-y-1">
-        <span className="text-sm text-neutral-400">Nivel de sig (0 a 200)</span>
-        <input
-          type="number"
-          name="sigLevel"
-          min={0}
-          max={200}
-          defaultValue={0}
-          inputMode="numeric"
-          className={FIELD}
-        />
-      </label>
-
-      <label className="flex items-center gap-3">
-        <input type="checkbox" name="isAscended" className="size-5" />
-        <span className="text-sm">Ascendido</span>
-      </label>
+      <ChampionFields defaults={{ currentRank: 1, sigLevel: 0, isAscended: false }} />
 
       {state.status === 'error' && <p className="text-sm text-red-400">{state.message}</p>}
 
