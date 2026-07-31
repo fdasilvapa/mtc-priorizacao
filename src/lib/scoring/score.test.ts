@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
+import { COST_DAMPENING, MAX_RANK, MAX_TIER_SCORE, WEIGHTS } from './config'
+import { collapseCost } from './cost'
 import { buildRosterContext, calculatePriorityScore, scoreRoster } from './score'
-import type { McocClass, RosterChampion } from './types'
+import type { McocClass, RosterChampion, RosterContext } from './types'
 
 /** Campeao base; cada teste sobrescreve so o que importa. */
 function champ(over: Partial<RosterChampion> = {}): RosterChampion {
@@ -20,6 +22,35 @@ function champ(over: Partial<RosterChampion> = {}): RosterChampion {
 }
 
 const semContexto = buildRosterContext([])
+
+/**
+ * Reproduz a media ponderada de calculatePriorityScore, mas sem a divisao
+ * pelo custo. Serve para isolar o efeito do divisor de custo nos testes.
+ */
+function weightedOf(champion: RosterChampion, context: RosterContext): number {
+  const sTier = champion.attackTierScore / MAX_TIER_SCORE
+  const sRank = (MAX_RANK - champion.currentRank) / (MAX_RANK - 1)
+
+  const sClass =
+    context.maxClassCount === 0
+      ? 0
+      : (context.maxClassCount - context.classCounts[champion.championClass]) /
+        context.maxClassCount
+
+  const sSig =
+    champion.attackRecommendedSig === 0
+      ? 1
+      : Math.min(1, champion.sigLevel / champion.attackRecommendedSig)
+
+  return (
+    WEIGHTS.tier * sTier +
+    WEIGHTS.rank * sRank +
+    WEIGHTS.class * sClass +
+    WEIGHTS.sig * sSig +
+    WEIGHTS.fav * (champion.isFavorite ? 1 : 0) +
+    WEIGHTS.asc * (champion.isAscended ? 1 : 0)
+  )
+}
 
 describe('buildRosterContext', () => {
   test('conta apenas campeoes no limiar de rank ou acima', () => {
@@ -92,10 +123,18 @@ describe('calculatePriorityScore', () => {
     expect(calculatePriorityScore(champ({ currentRank: 5 }), semContexto)).toBe(0)
   })
 
-  test('o custo nao afunda um R4 forte abaixo de um R1 fraco', () => {
-    const r4Forte = calculatePriorityScore(champ({ attackTierScore: 10, currentRank: 4 }), semContexto)
-    const r1Fraco = calculatePriorityScore(champ({ attackTierScore: 6, currentRank: 1 }), semContexto)
-    expect(r4Forte).toBeGreaterThan(r1Fraco)
+  test('o custo penaliza de forma perceptivel um rank up caro', () => {
+    const r4 = champ({ attackTierScore: 10, currentRank: 4 })
+    const score = calculatePriorityScore(r4, semContexto)
+    const multiplicador = weightedOf(r4, semContexto) / score
+
+    expect(multiplicador).toBeCloseTo(collapseCost(4) ** COST_DAMPENING, 10)
+    expect(multiplicador).toBeGreaterThan(1.3)
+  })
+
+  test('o custo nunca pesa mais que a diferenca de tier', () => {
+    const multiplicadorMaximo = collapseCost(4) ** COST_DAMPENING
+    expect(multiplicadorMaximo).toBeLessThan(2)
   })
 })
 

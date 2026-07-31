@@ -46,5 +46,11 @@ export const CATALYST_SCARCITY: Record<CatalystKey, number> = {
   classT6: 2,
 }
 
-/** Amortece o divisor de custo: 0 ignora custo, 1 aplica cheio. */
-export const COST_DAMPENING = 0.02
+/**
+ * Amortece o divisor de custo: 0 ignora custo, 1 aplica cheio.
+ * Em 0.2 o divisor de custo vai de 1.0 (R1) ate ~1.48 (R4) — um rank up caro
+ * pode custar ate ~33% do score do campeao, mas uma diferenca de tier list
+ * completa (2.5x no termo ponderado) ainda pesa mais que isso. Um valor
+ * maior deixaria o custo dominar a tier list, o que nao e o objetivo.
+ */
+export const COST_DAMPENING = 0.2

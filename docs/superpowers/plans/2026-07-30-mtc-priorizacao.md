@@ -339,8 +339,14 @@ export const CATALYST_SCARCITY: Record<CatalystKey, number> = {
   classT6: 2,
 }
 
-/** Amortece o divisor de custo: 0 ignora custo, 1 aplica cheio. */
-export const COST_DAMPENING = 0.5
+/**
+ * Amortece o divisor de custo: 0 ignora custo, 1 aplica cheio.
+ * Em 0.2 o divisor de custo vai de 1.0 (R1) ate ~1.48 (R4) — um rank up caro
+ * pode custar ate ~33% do score do campeao, mas uma diferenca de tier list
+ * completa (2.5x no termo ponderado) ainda pesa mais que isso. Um valor
+ * maior deixaria o custo dominar a tier list, o que nao e o objetivo.
+ */
+export const COST_DAMPENING = 0.2
 ```
 
 - [ ] **Step 3: Escrever os testes de custo (que vão falhar)**
@@ -469,8 +475,10 @@ Arquivo `src/lib/scoring/score.test.ts`:
 
 ```ts
 import { describe, expect, test } from 'bun:test'
+import { COST_DAMPENING, MAX_RANK, MAX_TIER_SCORE, WEIGHTS } from './config'
+import { collapseCost } from './cost'
 import { buildRosterContext, calculatePriorityScore, scoreRoster } from './score'
-import type { McocClass, RosterChampion } from './types'
+import type { McocClass, RosterChampion, RosterContext } from './types'
 
 /** Campeao base; cada teste sobrescreve so o que importa. */
 function champ(over: Partial<RosterChampion> = {}): RosterChampion {
@@ -490,6 +498,35 @@ function champ(over: Partial<RosterChampion> = {}): RosterChampion {
 }
 
 const semContexto = buildRosterContext([])
+
+/**
+ * Reproduz a media ponderada de calculatePriorityScore, mas sem a divisao
+ * pelo custo. Serve para isolar o efeito do divisor de custo nos testes.
+ */
+function weightedOf(champion: RosterChampion, context: RosterContext): number {
+  const sTier = champion.attackTierScore / MAX_TIER_SCORE
+  const sRank = (MAX_RANK - champion.currentRank) / (MAX_RANK - 1)
+
+  const sClass =
+    context.maxClassCount === 0
+      ? 0
+      : (context.maxClassCount - context.classCounts[champion.championClass]) /
+        context.maxClassCount
+
+  const sSig =
+    champion.attackRecommendedSig === 0
+      ? 1
+      : Math.min(1, champion.sigLevel / champion.attackRecommendedSig)
+
+  return (
+    WEIGHTS.tier * sTier +
+    WEIGHTS.rank * sRank +
+    WEIGHTS.class * sClass +
+    WEIGHTS.sig * sSig +
+    WEIGHTS.fav * (champion.isFavorite ? 1 : 0) +
+    WEIGHTS.asc * (champion.isAscended ? 1 : 0)
+  )
+}
 
 describe('buildRosterContext', () => {
   test('conta apenas campeoes no limiar de rank ou acima', () => {
@@ -562,10 +599,18 @@ describe('calculatePriorityScore', () => {
     expect(calculatePriorityScore(champ({ currentRank: 5 }), semContexto)).toBe(0)
   })
 
-  test('o custo nao afunda um R4 forte abaixo de um R1 fraco', () => {
-    const r4Forte = calculatePriorityScore(champ({ attackTierScore: 10, currentRank: 4 }), semContexto)
-    const r1Fraco = calculatePriorityScore(champ({ attackTierScore: 6, currentRank: 1 }), semContexto)
-    expect(r4Forte).toBeGreaterThan(r1Fraco)
+  test('o custo penaliza de forma perceptivel um rank up caro', () => {
+    const r4 = champ({ attackTierScore: 10, currentRank: 4 })
+    const score = calculatePriorityScore(r4, semContexto)
+    const multiplicador = weightedOf(r4, semContexto) / score
+
+    expect(multiplicador).toBeCloseTo(collapseCost(4) ** COST_DAMPENING, 10)
+    expect(multiplicador).toBeGreaterThan(1.3)
+  })
+
+  test('o custo nunca pesa mais que a diferenca de tier', () => {
+    const multiplicadorMaximo = collapseCost(4) ** COST_DAMPENING
+    expect(multiplicadorMaximo).toBeLessThan(2)
   })
 })
 
@@ -693,7 +738,7 @@ export function scoreRoster(roster: RosterChampion[]): ScoredChampion[] {
 Run: `bun test src/lib/scoring/`
 Expected: PASS — todos os testes de `cost.test.ts` e `score.test.ts`.
 
-Se `o custo nao afunda um R4 forte abaixo de um R1 fraco` falhar, o `COST_DAMPENING` está alto demais. **Não relaxe o teste** — ele existe justamente para pegar isso. Baixe `COST_DAMPENING` no `config.ts` até passar e relate o valor usado.
+**Nota de calibração (2026-07-30):** o teste original desta task, `o custo nao afunda um R4 forte abaixo de um R1 fraco`, só passava com `COST_DAMPENING` abaixo de ~0.026 — nesse ponto o divisor de custo virava um desempate de ~4% e o custo de catalisadores deixava de importar na prática. O dono do projeto avaliou o resultado e decidiu que o custo deve pesar, só que de forma moderada ("se é irrelevante, é melhor nem existir"). `COST_DAMPENING` foi recalibrado para `0.2` (divisor de custo entre 1.0 no R1 e ~1.48 no R4), e o teste antigo foi substituído por dois testes que travam essa faixa: `o custo penaliza de forma perceptivel um rank up caro` (o multiplicador de custo é > 1.3) e `o custo nunca pesa mais que a diferenca de tier` (o multiplicador de custo é < 2, abaixo do spread de 2.5x que uma diferença de tier list completa produz no termo ponderado).
 
 - [ ] **Step 5: Commit**
 
