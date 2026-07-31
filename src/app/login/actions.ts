@@ -18,8 +18,14 @@ export async function signInWithOtp(
     return { status: 'error', message: 'Informe um e-mail valido.' }
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+  if (!siteUrl && process.env.NODE_ENV === 'production') {
+    console.error('NEXT_PUBLIC_SITE_URL nao configurada em producao: login desabilitado.')
+    return { status: 'error', message: 'Login indisponivel no momento. Tente novamente mais tarde.' }
+  }
+  const origin = siteUrl ?? 'http://localhost:3000'
+
   const supabase = await createClient()
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
   const { error } = await supabase.auth.signInWithOtp({
     email,

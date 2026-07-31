@@ -99,3 +99,15 @@ $$\text{Prioridade} = (W_{\text{tier}} \cdot S_{\text{tier}}) + (W_{\text{rank}}
 4. `bun run dev`
 
 Testes: `bun test`
+
+---
+
+## 🚀 Deploy em produção
+
+Variáveis de ambiente obrigatórias no projeto da Vercel:
+
+* `NEXT_PUBLIC_SUPABASE_URL`
+* `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+* `NEXT_PUBLIC_SITE_URL` — deve ser a origem pública do deploy (ex.: `https://seu-app.vercel.app`). Sem essa variável em produção, o login por magic link é desabilitado propositalmente em vez de gerar um link quebrado apontando para `localhost`.
+
+Além disso, no Supabase: em **Authentication → URL Configuration → Redirect URLs**, adicione `<origem-de-producao>/auth/confirm` (ex.: `https://seu-app.vercel.app/auth/confirm`). Sem isso, o Supabase rejeita o redirect do magic link mesmo com `NEXT_PUBLIC_SITE_URL` configurada corretamente.
