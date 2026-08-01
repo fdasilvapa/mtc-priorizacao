@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { COST_DAMPENING, MAX_RANK, MAX_RECOMMENDED_SIG, WEIGHTS } from './config'
+import { COST_DAMPENING, MAX_RECOMMENDED_SIG, WEIGHTS } from './config'
 import { collapseCost } from './cost'
 import {
   buildRosterContext,
@@ -9,7 +9,7 @@ import {
   scoreRoster,
   weightedScore,
 } from './score'
-import type { McocClass, RosterChampion, RosterContext } from './types'
+import type { McocClass, RosterChampion } from './types'
 
 /** Campeao base; cada teste sobrescreve so o que importa. */
 function champ(over: Partial<RosterChampion> = {}): RosterChampion {

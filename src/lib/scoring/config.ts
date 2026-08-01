@@ -44,7 +44,7 @@ export const MAX_TIER_SCORE = 10
  * Piso da normalizacao de S_tier. Ancorar em zero seria medir a nota contra
  * um valor que nunca ocorre: campeao que se cogita subir vive entre 8 e 10,
  * ou seja, entre 0,80 e 1,00 — tier gastaria 20% da propria faixa e entregaria
- * 0.09 de amplitude real, menos que sig e menos que classe, apesar do peso 0.45.
+ * ~0.10 de amplitude real, menos que sig e menos que classe, apesar do peso alto de tier.
  *
  * Em 7, as faixas Mediocre e Awful da tier list zeram as duas. Nao e perda:
  * nenhuma delas e candidata a rank up, e isso torna irrelevante como colapsar
