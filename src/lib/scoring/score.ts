@@ -1,6 +1,7 @@
 import {
   COST_DAMPENING,
   MAX_RANK,
+  MAX_RECOMMENDED_SIG,
   MAX_TIER_SCORE,
   TIER_SCORE_FLOOR,
   WEIGHTS,
@@ -63,10 +64,12 @@ export function weightedScore(
       ? 0
       : 1 - context.classInvestment[champion.championClass] / context.maxClassInvestment
 
-  const sSig =
-    champion.attackRecommendedSig === 0
-      ? 1
-      : Math.min(1, champion.sigLevel / champion.attackRecommendedSig)
+  // O que importa e quanto sig ainda FALTA, nao a fracao ja percorrida: quem
+  // precisa de 20 e esta em 0 esta a um passo de pronto, e a razao antiga o
+  // tratava igual a quem precisa de 200. Recomendado 0 da gap 0, ou seja, nota
+  // cheia — agora por coerencia da formula e nao por um caso especial.
+  const sigGap = Math.max(0, champion.attackRecommendedSig - champion.sigLevel)
+  const sSig = 1 - Math.min(1, sigGap / MAX_RECOMMENDED_SIG)
 
   return (
     WEIGHTS.tier * sTier +

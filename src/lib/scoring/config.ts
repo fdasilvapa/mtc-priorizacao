@@ -47,6 +47,14 @@ export const MAX_TIER_SCORE = 10
  */
 export const TIER_SCORE_FLOOR = 7
 
+/**
+ * Maior sig recomendado do catalogo (os valores sao 0, 20, 60, 80 e 200).
+ * Serve de escala para o gap: quem precisa de 200 e esta em 0 zera o fator, e
+ * todo o resto se mede contra isso. Se a fonte passar a recomendar mais que
+ * 200, este numero acompanha.
+ */
+export const MAX_RECOMMENDED_SIG = 200
+
 /** Custo de catalisadores para subir A PARTIR do rank N (7 estrelas). */
 export const RANK_UP_COST: Record<number, CatalystCost> = {
   1: { alphaT3: 7, basicT6: 7, classT5: 4, classT6: 4 },

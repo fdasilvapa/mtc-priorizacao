@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { COST_DAMPENING, MAX_RANK, WEIGHTS } from './config'
+import { COST_DAMPENING, MAX_RANK, MAX_RECOMMENDED_SIG, WEIGHTS } from './config'
 import { collapseCost } from './cost'
 import {
   buildRosterContext,
@@ -132,6 +132,39 @@ describe('calculatePriorityScore', () => {
     const semReq = calculatePriorityScore(champ({ attackRecommendedSig: 0, sigLevel: 0 }), semContexto)
     const comReqAtendido = calculatePriorityScore(champ({ attackRecommendedSig: 20, sigLevel: 20 }), semContexto)
     expect(semReq).toBe(comReqAtendido)
+  })
+
+  test('quem precisa de pouco sig pontua bem acima de quem precisa de muito', () => {
+    const quasePronto = calculatePriorityScore(
+      champ({ attackRecommendedSig: 20, sigLevel: 0 }), semContexto,
+    )
+    const bemLonge = calculatePriorityScore(
+      champ({ attackRecommendedSig: 200, sigLevel: 0 }), semContexto,
+    )
+    expect(quasePronto).toBeGreaterThan(bemLonge)
+  })
+
+  test('o que conta e o gap absoluto, nao a fracao percorrida', () => {
+    // 36/60 e 60% da razao, mas faltam so 24 sig; 120/200 tambem e 60%,
+    // mas faltam 80. O primeiro esta mais perto de pronto.
+    const gapPequeno = calculatePriorityScore(
+      champ({ attackRecommendedSig: 60, sigLevel: 36 }), semContexto,
+    )
+    const gapGrande = calculatePriorityScore(
+      champ({ attackRecommendedSig: 200, sigLevel: 120 }), semContexto,
+    )
+    expect(gapPequeno).toBeGreaterThan(gapGrande)
+  })
+
+  test('o gap maximo do catalogo zera o fator', () => {
+    const semNada = weightedScore(
+      champ({ attackRecommendedSig: MAX_RECOMMENDED_SIG, sigLevel: 0 }), semContexto,
+    )
+    const cheio = weightedScore(
+      champ({ attackRecommendedSig: MAX_RECOMMENDED_SIG, sigLevel: MAX_RECOMMENDED_SIG }),
+      semContexto,
+    )
+    expect(cheio - semNada).toBeCloseTo(WEIGHTS.sig, 10)
   })
 
   test('favorito supera nao-favorito, resto igual', () => {
