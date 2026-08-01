@@ -41,15 +41,13 @@ export function normalizeTier(attackTierScore: number): number {
 }
 
 /**
- * Media ponderada dos fatores, dividida pelo custo amortecido do proximo
- * rank up. Campeoes no rank maximo devolvem 0 — nao ha para onde subir.
+ * Media ponderada dos fatores, antes da divisao pelo custo. Exportada para que
+ * os testes possam isolar o efeito do divisor sem reimplementar a formula.
  */
-export function calculatePriorityScore(
+export function weightedScore(
   champion: RosterChampion,
   context: RosterContext,
 ): number {
-  if (champion.currentRank >= MAX_RANK) return 0
-
   const sTier = normalizeTier(champion.attackTierScore)
   const sRank = (MAX_RANK - champion.currentRank) / (MAX_RANK - 1)
 
@@ -64,15 +62,27 @@ export function calculatePriorityScore(
       ? 1
       : Math.min(1, champion.sigLevel / champion.attackRecommendedSig)
 
-  const weighted =
+  return (
     WEIGHTS.tier * sTier +
     WEIGHTS.rank * sRank +
     WEIGHTS.class * sClass +
     WEIGHTS.sig * sSig +
     WEIGHTS.fav * (champion.isFavorite ? 1 : 0) +
     WEIGHTS.asc * (champion.isAscended ? 1 : 0)
+  )
+}
 
-  return weighted / collapseCost(champion.currentRank) ** COST_DAMPENING
+/**
+ * Media ponderada dividida pelo custo amortecido do proximo rank up.
+ * Campeoes no rank maximo devolvem 0 — nao ha para onde subir.
+ */
+export function calculatePriorityScore(
+  champion: RosterChampion,
+  context: RosterContext,
+): number {
+  if (champion.currentRank >= MAX_RANK) return 0
+
+  return weightedScore(champion, context) / collapseCost(champion.currentRank) ** COST_DAMPENING
 }
 
 /** Pontua o roster inteiro e devolve ordenado, com os maxed no fim. */
