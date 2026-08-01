@@ -3,27 +3,32 @@ import type { CatalystCost, CatalystKey } from './types'
 /**
  * Pesos da media ponderada. Somam 1.0.
  *
- * Calibrados contra a tier list real (326 campeoes, 8 faixas). Com
- * TIER_SCORE_FLOOR = 7, uma faixa de tier (0,5 de nota) vale 0.075 no termo
- * ponderado — a referencia para dimensionar todo o resto:
+ * Calibrados em 01/08/2026 contra o roster real (91 campeoes), nao so contra a
+ * tier list. Com TIER_SCORE_FLOOR = 7 e tier em 0.49, uma faixa de tier
+ * (0,5 de nota) vale 0.0817 no termo ponderado — a referencia para dimensionar
+ * o resto:
  *
- *   asc 0.08  ascender vale uma faixa de tier e um fio a mais. E o unico
- *             fator que vence tier no empate curto, de proposito: ascensao
- *             virou um salto de poder real no jogo.
- *   sig 0.07  abaixo de uma faixa. Nao pode ser mais: 87 dos 326 campeoes
- *             tem sig_recomendado = 0 e levam nota cheia de graca.
- *   fav 0.05  desempate deliberado do dono, sem forca para inverter tier.
+ *   asc 0.09  ascender vale pouco mais que uma faixa de tier, de proposito:
+ *             ascensao virou um salto de poder real no jogo. Subiu de 0.08
+ *             junto com tier — o que se preserva e a RELACAO com a faixa, nao
+ *             o numero absoluto.
+ *   sig 0.07  abaixo de uma faixa. Mede o gap que falta, nao a razao.
+ *   fav 0.06  desempate do dono, sem forca para inverter uma faixa de tier.
  *
- * Nenhuma combinacao de fav + asc + sig (0.20) alcanca dois pontos de nota
- * (0.30). A tier list continua mandando.
+ * rank caiu de 0.20 para 0.14: ele contava a mesma coisa que o divisor de
+ * custo, que tambem favorece rank baixo. Somados valiam mais que a tier list.
+ *
+ * Uma advertencia medida: o top 20 do roster cabe numa faixa de 0.103, com
+ * 0.0054 entre vizinhos. Nenhum peso aqui e ajuste fino — mexer 0.01 reordena
+ * o topo de forma visivel, e diferencas abaixo de 0.005 sao ruido.
  */
 export const WEIGHTS = {
-  tier: 0.45,
-  rank: 0.20,
+  tier: 0.49,
+  rank: 0.14,
   class: 0.15,
   sig: 0.07,
-  fav: 0.05,
-  asc: 0.08,
+  fav: 0.06,
+  asc: 0.09,
 } as const
 
 /**
@@ -81,9 +86,12 @@ export const CATALYST_SCARCITY: Record<CatalystKey, number> = {
 
 /**
  * Amortece o divisor de custo: 0 ignora custo, 1 aplica cheio.
- * Em 0.2 o divisor de custo vai de 1.0 (R1) ate ~1.48 (R4) — um rank up caro
- * pode custar ate ~33% do score do campeao, mas uma diferenca de tier list
- * completa (2.5x no termo ponderado) ainda pesa mais que isso. Um valor
- * maior deixaria o custo dominar a tier list, o que nao e o objetivo.
+ * Em 0.1 o divisor vai de 1.0 (R1) ate ~1.22 (R4) — um rank up caro custa ate
+ * ~18% do score, contra ~33% em 0.2. Baixou porque o custo estava contando
+ * duas vezes junto com o peso de rank.
+ *
+ * Nao baixar mais: 64 dos 91 campeoes do roster sao R1, entao ~14 no top 20 e
+ * o esperado por proporcao. Ja e o que sai hoje; menos dampening criaria vies
+ * na direcao oposta.
  */
-export const COST_DAMPENING = 0.2
+export const COST_DAMPENING = 0.1

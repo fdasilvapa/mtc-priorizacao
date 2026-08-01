@@ -189,7 +189,7 @@ describe('calculatePriorityScore', () => {
     const multiplicador = weightedScore(r4, semContexto) / score
 
     expect(multiplicador).toBeCloseTo(collapseCost(4) ** COST_DAMPENING, 10)
-    expect(multiplicador).toBeGreaterThan(1.3)
+    expect(multiplicador).toBeGreaterThan(1.2)
   })
 
   test('o custo nunca pesa mais que a diferenca de tier', () => {
@@ -255,6 +255,13 @@ describe('calibragem: hierarquia dos fatores', () => {
   test('ascender vence uma faixa de tier, mas nao um ponto inteiro de nota', () => {
     expect(WEIGHTS.asc).toBeGreaterThan(faixa)
     expect(WEIGHTS.asc).toBeLessThan(ponto)
+  })
+
+  test('a margem da ascensao sobre a faixa e estreita de proposito', () => {
+    // Guarda contra um ajuste em WEIGHTS.tier que faca a faixa ultrapassar
+    // asc: a hierarquia inverteria sem nenhum teste reclamar.
+    expect(WEIGHTS.asc - faixa).toBeGreaterThan(0)
+    expect(WEIGHTS.asc - faixa).toBeLessThan(faixa / 2)
   })
 
   test('favorito + ascendido juntos nao alcancam um ponto inteiro de nota', () => {
