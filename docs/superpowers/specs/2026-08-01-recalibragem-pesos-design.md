@@ -131,35 +131,41 @@ um caso especial: gap zero significa pronto.
 
 | | atual | novo | por que |
 |---|---:|---:|---|
-| tier | 0.45 | **0.50** | absorve o que saiu de `rank`; a tier list volta a mandar mais |
+| tier | 0.45 | **0.49** | absorve o que saiu de `rank`; a tier list volta a mandar mais |
 | rank | 0.20 | **0.14** | contava a mesma coisa que o divisor de custo |
 | class | 0.15 | 0.15 | mesmo peso, mas agora com amplitude util de verdade |
 | sig | 0.07 | 0.07 | inalterado; muda a forma da curva, nao a forca |
 | fav | 0.05 | **0.06** | pedido do dono, sem poder de inverter qualidade |
-| asc | 0.08 | 0.08 | medido e mantido (ver abaixo) |
+| asc | 0.08 | **0.09** | sobe para preservar a relacao com a faixa de tier |
 
 Soma: 1.00.
 
 `COST_DAMPENING`: 0.2 -> **0.1**. Reduz o corte maximo de ~33% para ~18%.
 
-Dois numeros foram medidos e deliberadamente **nao** mudaram:
+Sobre a ascensao: o teste `ascender vence uma faixa de tier` define a faixa como
+`WEIGHTS.tier * 0.1667`. Subir `tier` de 0.45 para 0.49 leva a faixa de 0.075
+para 0.0817, e `asc = 0.08` cairia abaixo dela. O peso sobe para 0.09 para
+manter a relacao intacta — a intencao nao mudou, so a escala contra a qual ela
+e medida. Efeito pratico no roster: Gorr vai de #19 para #17.
 
-- **Ascensao em 0.08.** Cada um dos 4 ascendidos ganha 18 a 25 posicoes com esse
-  peso, e ainda assim nenhum entra no top 15 — os outros fatores os seguram. O
-  fator trabalha sem dominar. Em 0.12 ele viraria decisivo (Gorr saltaria para
-  o #4).
+O comportamento da ascensao foi medido e e o desejado: cada um dos 4 ascendidos
+ganha 18 a 25 posicoes, e ainda assim nenhum entra no top 15, porque os outros
+fatores os seguram. Em 0.12 o fator viraria decisivo (Gorr saltaria para o #4).
+
+Um numero foi medido e deliberadamente **nao** mudou:
+
 - **Vies pro-R1.** 64 dos 91 campeoes sao R1, entao ~14 no top 20 e o esperado
   por proporcao. O ranking atual da 13 e o novo da 14. Nao ha vies a corrigir;
   baixar mais `COST_DAMPENING` criaria vies na direcao oposta.
 
 ## Resultado esperado no roster de referencia
 
-- Simbionte Supremo: #1 -> #16. Madelyne Pryor: #2 -> #13. Doutor Estranho: #9 -> #23.
+- Simbionte Supremo: #1 -> #16. Madelyne Pryor e Doutor Estranho caem junto.
 - Misticos no top 20: 4 -> 2.
-- Sobem Shang-Chi (#29 -> #10), Shuri (#45 -> #21), Pantera Jabari (#53 -> #25),
-  e a faixa de Tech/Science.
+- Sobem Shang-Chi (#29 -> #10), Shuri (~#21), e a faixa de Tech/Science.
 - Top 3: Vox, Ossos Cruzados, Venom.
 - Scores distintos no top 20: 8 -> 15.
+- Gorr (ascendido) fica em #17.
 
 Mutant continua ausente do top 20, e isso **nao** e defeito: os melhores mutants
 ja estao upados (Massacre 10.0 em R4, Gentil 9.5 em R3) e os restantes chegam a
