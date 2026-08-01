@@ -1,5 +1,4 @@
 import {
-  CLASS_RANK_THRESHOLD,
   COST_DAMPENING,
   MAX_RANK,
   MAX_TIER_SCORE,
@@ -11,23 +10,31 @@ import { MCOC_CLASSES } from './types'
 import type { McocClass, RosterChampion, RosterContext, ScoredChampion } from './types'
 
 /**
- * Agrega o roster inteiro uma unica vez: quantos campeoes de cada classe
- * ja passaram do limiar de rank. E o insumo do fator de equilibrio de classe.
+ * Custo ja pago para levar um campeao do R1 ate o rank atual, na mesma unidade
+ * de collapseCost (o rank up 1->2 vale 1.0).
+ */
+export function investedInRank(rank: number): number {
+  let total = 0
+  for (let r = 1; r < rank; r++) total += collapseCost(r)
+  return total
+}
+
+/**
+ * Agrega o roster inteiro uma unica vez: quanto custo ja foi pago em cada
+ * classe. E o insumo do fator de equilibrio de classe.
  */
 export function buildRosterContext(roster: RosterChampion[]): RosterContext {
-  const classCounts = Object.fromEntries(
+  const classInvestment = Object.fromEntries(
     MCOC_CLASSES.map((c) => [c, 0]),
   ) as Record<McocClass, number>
 
   for (const champion of roster) {
-    if (champion.currentRank >= CLASS_RANK_THRESHOLD) {
-      classCounts[champion.championClass] += 1
-    }
+    classInvestment[champion.championClass] += investedInRank(champion.currentRank)
   }
 
   return {
-    classCounts,
-    maxClassCount: Math.max(...Object.values(classCounts)),
+    classInvestment,
+    maxClassInvestment: Math.max(...Object.values(classInvestment)),
   }
 }
 
@@ -52,10 +59,9 @@ export function weightedScore(
   const sRank = (MAX_RANK - champion.currentRank) / (MAX_RANK - 1)
 
   const sClass =
-    context.maxClassCount === 0
+    context.maxClassInvestment === 0
       ? 0
-      : (context.maxClassCount - context.classCounts[champion.championClass]) /
-        context.maxClassCount
+      : 1 - context.classInvestment[champion.championClass] / context.maxClassInvestment
 
   const sSig =
     champion.attackRecommendedSig === 0

@@ -32,9 +32,6 @@ export const WEIGHTS = {
  */
 export const MAX_RANK = 5
 
-/** A partir deste rank o campeao conta como "evoluido" no equilibrio de classe. */
-export const CLASS_RANK_THRESHOLD = 3
-
 /** Nota maxima da tier list, usada para normalizar S_tier. */
 export const MAX_TIER_SCORE = 10
 

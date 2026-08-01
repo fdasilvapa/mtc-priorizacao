@@ -4,6 +4,7 @@ import { collapseCost } from './cost'
 import {
   buildRosterContext,
   calculatePriorityScore,
+  investedInRank,
   normalizeTier,
   scoreRoster,
   weightedScore,
@@ -29,23 +30,72 @@ function champ(over: Partial<RosterChampion> = {}): RosterChampion {
 
 const semContexto = buildRosterContext([])
 
+describe('investedInRank', () => {
+  test('R1 nao teve investimento nenhum', () => {
+    expect(investedInRank(1)).toBe(0)
+  })
+
+  test('cada rank acumula o custo de todos os rank ups anteriores', () => {
+    expect(investedInRank(2)).toBeCloseTo(collapseCost(1), 10)
+    expect(investedInRank(3)).toBeCloseTo(collapseCost(1) + collapseCost(2), 10)
+    expect(investedInRank(5)).toBeCloseTo(
+      collapseCost(1) + collapseCost(2) + collapseCost(3) + collapseCost(4),
+      10,
+    )
+  })
+
+  test('o investimento cresce mais rapido nos ranks altos', () => {
+    const doR1AoR2 = investedInRank(2) - investedInRank(1)
+    const doR3AoR4 = investedInRank(4) - investedInRank(3)
+    expect(doR3AoR4).toBeGreaterThan(doR1AoR2 * 2)
+  })
+})
+
 describe('buildRosterContext', () => {
-  test('conta apenas campeoes no limiar de rank ou acima', () => {
+  test('soma o investimento de todos os campeoes da classe, sem limiar de rank', () => {
     const ctx = buildRosterContext([
       champ({ id: 'a', championClass: 'Mutant', currentRank: 4 }),
-      champ({ id: 'b', championClass: 'Mutant', currentRank: 3 }),
-      champ({ id: 'c', championClass: 'Mutant', currentRank: 2 }),
-      champ({ id: 'd', championClass: 'Tech', currentRank: 3 }),
+      champ({ id: 'b', championClass: 'Mutant', currentRank: 2 }),
+      champ({ id: 'c', championClass: 'Tech', currentRank: 3 }),
     ])
-    expect(ctx.classCounts.Mutant).toBe(2)
-    expect(ctx.classCounts.Tech).toBe(1)
-    expect(ctx.classCounts.Cosmic).toBe(0)
-    expect(ctx.maxClassCount).toBe(2)
+    expect(ctx.classInvestment.Mutant).toBeCloseTo(investedInRank(4) + investedInRank(2), 10)
+    expect(ctx.classInvestment.Tech).toBeCloseTo(investedInRank(3), 10)
+    expect(ctx.classInvestment.Cosmic).toBe(0)
+    expect(ctx.maxClassInvestment).toBeCloseTo(investedInRank(4) + investedInRank(2), 10)
+  })
+
+  test('um rank up de R1 para R2 move o fator — era o defeito do limiar em R3', () => {
+    const antes = buildRosterContext([champ({ championClass: 'Mystic', currentRank: 1 })])
+    const depois = buildRosterContext([champ({ championClass: 'Mystic', currentRank: 2 })])
+    expect(antes.classInvestment.Mystic).toBe(0)
+    expect(depois.classInvestment.Mystic).toBeGreaterThan(0)
+  })
+
+  test('roster inteiro em R1 zera tudo sem dividir por zero', () => {
+    const ctx = buildRosterContext([
+      champ({ id: 'a', championClass: 'Skill', currentRank: 1 }),
+      champ({ id: 'b', championClass: 'Tech', currentRank: 1 }),
+    ])
+    expect(ctx.maxClassInvestment).toBe(0)
+    expect(calculatePriorityScore(champ({ championClass: 'Skill', currentRank: 1 }), ctx)).toBeGreaterThan(0)
   })
 
   test('roster vazio nao quebra e zera o maximo', () => {
-    expect(semContexto.maxClassCount).toBe(0)
-    expect(semContexto.classCounts.Skill).toBe(0)
+    expect(semContexto.maxClassInvestment).toBe(0)
+    expect(semContexto.classInvestment.Skill).toBe(0)
+  })
+
+  test('a classe menos investida recebe o bonus maximo', () => {
+    const ctx = buildRosterContext([
+      champ({ id: 'a', championClass: 'Mystic', currentRank: 4 }),
+      champ({ id: 'b', championClass: 'Mystic', currentRank: 4 }),
+      champ({ id: 'c', championClass: 'Tech', currentRank: 2 }),
+    ])
+    const menosInvestida = calculatePriorityScore(champ({ championClass: 'Cosmic' }), ctx)
+    const intermediaria = calculatePriorityScore(champ({ championClass: 'Tech' }), ctx)
+    const maisInvestida = calculatePriorityScore(champ({ championClass: 'Mystic' }), ctx)
+    expect(menosInvestida).toBeGreaterThan(intermediaria)
+    expect(intermediaria).toBeGreaterThan(maisInvestida)
   })
 })
 

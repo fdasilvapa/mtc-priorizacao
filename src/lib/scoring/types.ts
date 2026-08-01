@@ -26,10 +26,14 @@ export interface RosterChampion {
   isAscended: boolean
 }
 
-/** Agregados do roster inteiro, calculados uma unica vez. */
+/**
+ * Agregados do roster inteiro, calculados uma unica vez.
+ * O investimento por classe e a base do fator de equilibrio: ele mede o custo
+ * ja pago em cada classe, nao quantos campeoes cruzaram um limiar de rank.
+ */
 export interface RosterContext {
-  classCounts: Record<McocClass, number>
-  maxClassCount: number
+  classInvestment: Record<McocClass, number>
+  maxClassInvestment: number
 }
 
 export interface ScoredChampion extends RosterChampion {
