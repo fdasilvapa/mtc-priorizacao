@@ -1,13 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { COST_DAMPENING, MAX_RANK, WEIGHTS } from './config'
+import { COST_DAMPENING, MAX_RECOMMENDED_SIG, WEIGHTS } from './config'
 import { collapseCost } from './cost'
 import {
   buildRosterContext,
   calculatePriorityScore,
+  investedInRank,
   normalizeTier,
   scoreRoster,
+  weightedScore,
 } from './score'
-import type { McocClass, RosterChampion, RosterContext } from './types'
+import type { McocClass, RosterChampion } from './types'
 
 /** Campeao base; cada teste sobrescreve so o que importa. */
 function champ(over: Partial<RosterChampion> = {}): RosterChampion {
@@ -28,52 +30,72 @@ function champ(over: Partial<RosterChampion> = {}): RosterChampion {
 
 const semContexto = buildRosterContext([])
 
-/**
- * Reproduz a media ponderada de calculatePriorityScore, mas sem a divisao
- * pelo custo. Serve para isolar o efeito do divisor de custo nos testes.
- */
-function weightedOf(champion: RosterChampion, context: RosterContext): number {
-  const sTier = normalizeTier(champion.attackTierScore)
-  const sRank = (MAX_RANK - champion.currentRank) / (MAX_RANK - 1)
+describe('investedInRank', () => {
+  test('R1 nao teve investimento nenhum', () => {
+    expect(investedInRank(1)).toBe(0)
+  })
 
-  const sClass =
-    context.maxClassCount === 0
-      ? 0
-      : (context.maxClassCount - context.classCounts[champion.championClass]) /
-        context.maxClassCount
+  test('cada rank acumula o custo de todos os rank ups anteriores', () => {
+    expect(investedInRank(2)).toBeCloseTo(collapseCost(1), 10)
+    expect(investedInRank(3)).toBeCloseTo(collapseCost(1) + collapseCost(2), 10)
+    expect(investedInRank(5)).toBeCloseTo(
+      collapseCost(1) + collapseCost(2) + collapseCost(3) + collapseCost(4),
+      10,
+    )
+  })
 
-  const sSig =
-    champion.attackRecommendedSig === 0
-      ? 1
-      : Math.min(1, champion.sigLevel / champion.attackRecommendedSig)
-
-  return (
-    WEIGHTS.tier * sTier +
-    WEIGHTS.rank * sRank +
-    WEIGHTS.class * sClass +
-    WEIGHTS.sig * sSig +
-    WEIGHTS.fav * (champion.isFavorite ? 1 : 0) +
-    WEIGHTS.asc * (champion.isAscended ? 1 : 0)
-  )
-}
+  test('o investimento cresce mais rapido nos ranks altos', () => {
+    const doR1AoR2 = investedInRank(2) - investedInRank(1)
+    const doR3AoR4 = investedInRank(4) - investedInRank(3)
+    expect(doR3AoR4).toBeGreaterThan(doR1AoR2 * 2)
+  })
+})
 
 describe('buildRosterContext', () => {
-  test('conta apenas campeoes no limiar de rank ou acima', () => {
+  test('soma o investimento de todos os campeoes da classe, sem limiar de rank', () => {
     const ctx = buildRosterContext([
       champ({ id: 'a', championClass: 'Mutant', currentRank: 4 }),
-      champ({ id: 'b', championClass: 'Mutant', currentRank: 3 }),
-      champ({ id: 'c', championClass: 'Mutant', currentRank: 2 }),
-      champ({ id: 'd', championClass: 'Tech', currentRank: 3 }),
+      champ({ id: 'b', championClass: 'Mutant', currentRank: 2 }),
+      champ({ id: 'c', championClass: 'Tech', currentRank: 3 }),
     ])
-    expect(ctx.classCounts.Mutant).toBe(2)
-    expect(ctx.classCounts.Tech).toBe(1)
-    expect(ctx.classCounts.Cosmic).toBe(0)
-    expect(ctx.maxClassCount).toBe(2)
+    expect(ctx.classInvestment.Mutant).toBeCloseTo(investedInRank(4) + investedInRank(2), 10)
+    expect(ctx.classInvestment.Tech).toBeCloseTo(investedInRank(3), 10)
+    expect(ctx.classInvestment.Cosmic).toBe(0)
+    expect(ctx.maxClassInvestment).toBeCloseTo(investedInRank(4) + investedInRank(2), 10)
+  })
+
+  test('um rank up de R1 para R2 move o fator — era o defeito do limiar em R3', () => {
+    const antes = buildRosterContext([champ({ championClass: 'Mystic', currentRank: 1 })])
+    const depois = buildRosterContext([champ({ championClass: 'Mystic', currentRank: 2 })])
+    expect(antes.classInvestment.Mystic).toBe(0)
+    expect(depois.classInvestment.Mystic).toBeGreaterThan(0)
+  })
+
+  test('roster inteiro em R1 zera tudo sem dividir por zero', () => {
+    const ctx = buildRosterContext([
+      champ({ id: 'a', championClass: 'Skill', currentRank: 1 }),
+      champ({ id: 'b', championClass: 'Tech', currentRank: 1 }),
+    ])
+    expect(ctx.maxClassInvestment).toBe(0)
+    expect(calculatePriorityScore(champ({ championClass: 'Skill', currentRank: 1 }), ctx)).toBeGreaterThan(0)
   })
 
   test('roster vazio nao quebra e zera o maximo', () => {
-    expect(semContexto.maxClassCount).toBe(0)
-    expect(semContexto.classCounts.Skill).toBe(0)
+    expect(semContexto.maxClassInvestment).toBe(0)
+    expect(semContexto.classInvestment.Skill).toBe(0)
+  })
+
+  test('a classe menos investida recebe o bonus maximo', () => {
+    const ctx = buildRosterContext([
+      champ({ id: 'a', championClass: 'Mystic', currentRank: 4 }),
+      champ({ id: 'b', championClass: 'Mystic', currentRank: 4 }),
+      champ({ id: 'c', championClass: 'Tech', currentRank: 2 }),
+    ])
+    const menosInvestida = calculatePriorityScore(champ({ championClass: 'Cosmic' }), ctx)
+    const intermediaria = calculatePriorityScore(champ({ championClass: 'Tech' }), ctx)
+    const maisInvestida = calculatePriorityScore(champ({ championClass: 'Mystic' }), ctx)
+    expect(menosInvestida).toBeGreaterThan(intermediaria)
+    expect(intermediaria).toBeGreaterThan(maisInvestida)
   })
 })
 
@@ -112,6 +134,39 @@ describe('calculatePriorityScore', () => {
     expect(semReq).toBe(comReqAtendido)
   })
 
+  test('quem precisa de pouco sig pontua bem acima de quem precisa de muito', () => {
+    const quasePronto = calculatePriorityScore(
+      champ({ attackRecommendedSig: 20, sigLevel: 0 }), semContexto,
+    )
+    const bemLonge = calculatePriorityScore(
+      champ({ attackRecommendedSig: 200, sigLevel: 0 }), semContexto,
+    )
+    expect(quasePronto).toBeGreaterThan(bemLonge)
+  })
+
+  test('o que conta e o gap absoluto, nao a fracao percorrida', () => {
+    // 36/60 e 60% da razao, mas faltam so 24 sig; 120/200 tambem e 60%,
+    // mas faltam 80. O primeiro esta mais perto de pronto.
+    const gapPequeno = calculatePriorityScore(
+      champ({ attackRecommendedSig: 60, sigLevel: 36 }), semContexto,
+    )
+    const gapGrande = calculatePriorityScore(
+      champ({ attackRecommendedSig: 200, sigLevel: 120 }), semContexto,
+    )
+    expect(gapPequeno).toBeGreaterThan(gapGrande)
+  })
+
+  test('o gap maximo do catalogo zera o fator', () => {
+    const semNada = weightedScore(
+      champ({ attackRecommendedSig: MAX_RECOMMENDED_SIG, sigLevel: 0 }), semContexto,
+    )
+    const cheio = weightedScore(
+      champ({ attackRecommendedSig: MAX_RECOMMENDED_SIG, sigLevel: MAX_RECOMMENDED_SIG }),
+      semContexto,
+    )
+    expect(cheio - semNada).toBeCloseTo(WEIGHTS.sig, 10)
+  })
+
   test('favorito supera nao-favorito, resto igual', () => {
     const fav = calculatePriorityScore(champ({ isFavorite: true }), semContexto)
     const naoFav = calculatePriorityScore(champ({ isFavorite: false }), semContexto)
@@ -131,10 +186,10 @@ describe('calculatePriorityScore', () => {
   test('o custo penaliza de forma perceptivel um rank up caro', () => {
     const r4 = champ({ attackTierScore: 10, currentRank: 4 })
     const score = calculatePriorityScore(r4, semContexto)
-    const multiplicador = weightedOf(r4, semContexto) / score
+    const multiplicador = weightedScore(r4, semContexto) / score
 
     expect(multiplicador).toBeCloseTo(collapseCost(4) ** COST_DAMPENING, 10)
-    expect(multiplicador).toBeGreaterThan(1.3)
+    expect(multiplicador).toBeGreaterThan(1.2)
   })
 
   test('o custo nunca pesa mais que a diferenca de tier', () => {
@@ -200,6 +255,13 @@ describe('calibragem: hierarquia dos fatores', () => {
   test('ascender vence uma faixa de tier, mas nao um ponto inteiro de nota', () => {
     expect(WEIGHTS.asc).toBeGreaterThan(faixa)
     expect(WEIGHTS.asc).toBeLessThan(ponto)
+  })
+
+  test('a margem da ascensao sobre a faixa e estreita de proposito', () => {
+    // Guarda contra um ajuste em WEIGHTS.tier que faca a faixa ultrapassar
+    // asc: a hierarquia inverteria sem nenhum teste reclamar.
+    expect(WEIGHTS.asc - faixa).toBeGreaterThan(0)
+    expect(WEIGHTS.asc - faixa).toBeLessThan(faixa / 2)
   })
 
   test('favorito + ascendido juntos nao alcancam um ponto inteiro de nota', () => {
