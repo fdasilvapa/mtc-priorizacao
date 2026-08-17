@@ -19,7 +19,7 @@ import type { McocClass, RosterChampion, RosterContext, ScoredChampion } from '.
  * maximo receberem score 0 e nem entrarem no ranking.
  */
 export function rankPoints(rank: number): number {
-  return rank - 1
+  return Math.max(0, rank - 1)
 }
 
 /**
