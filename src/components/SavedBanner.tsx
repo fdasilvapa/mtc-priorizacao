@@ -1,19 +1,26 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 
 /**
- * Aviso curto depois de salvar. Some sozinho e limpa o parametro da URL, para
- * um refresh nao ressuscitar a mensagem.
+ * Aviso curto depois de salvar. Some sozinho e limpa so o parametro 'salvo'
+ * da URL, preservando os demais (filtros), para um refresh nao ressuscitar
+ * a mensagem nem descartar filtros que o dono tenha ajustado nesse meio tempo.
  */
 export function SavedBanner({ nome }: { nome: string }) {
   const router = useRouter()
+  const params = useSearchParams()
 
   useEffect(() => {
-    const t = setTimeout(() => router.replace('/'), 3000)
+    const t = setTimeout(() => {
+      const next = new URLSearchParams(params.toString())
+      next.delete('salvo')
+      const query = next.toString()
+      router.replace(query ? `/?${query}` : '/')
+    }, 3000)
     return () => clearTimeout(t)
-  }, [router])
+  }, [router, params])
 
   return (
     <p
