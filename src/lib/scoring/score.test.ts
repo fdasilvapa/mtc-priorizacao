@@ -302,8 +302,9 @@ describe('calibragem: hierarquia dos fatores', () => {
   test('favorito + ascendido juntos passam de um ponto de nota, mas por pouco', () => {
     // Invertida em 15/08/2026, quando asc subiu de 0.09 para 0.11: os dois
     // bonus do dono somados passaram a virar um ponto inteiro de tier. A
-    // margem e de 0.0067 — dentro do ruido de 0.005 da calibragem — e o limite
-    // de cima e o que importa: juntos nao chegam perto de dois pontos.
+    // margem e de 0.0067 — dentro do ruido de 0.005 da calibragem. O limite de
+    // cima trava a folga: mesmo somados, fav + asc ficam no maximo um quarto
+    // acima de um ponto de nota, bem longe de valerem dois pontos completos.
     expect(WEIGHTS.fav + WEIGHTS.asc).toBeGreaterThan(ponto)
     expect(WEIGHTS.fav + WEIGHTS.asc).toBeLessThan(ponto * 1.25)
   })
