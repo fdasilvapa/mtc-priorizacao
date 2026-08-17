@@ -299,8 +299,13 @@ describe('calibragem: hierarquia dos fatores', () => {
     expect(WEIGHTS.asc - faixa).toBeLessThan(faixa / 2)
   })
 
-  test('favorito + ascendido juntos nao alcancam um ponto inteiro de nota', () => {
-    expect(WEIGHTS.fav + WEIGHTS.asc).toBeLessThan(ponto)
+  test('favorito + ascendido juntos passam de um ponto de nota, mas por pouco', () => {
+    // Invertida em 15/08/2026, quando asc subiu de 0.09 para 0.11: os dois
+    // bonus do dono somados passaram a virar um ponto inteiro de tier. A
+    // margem e de 0.0067 — dentro do ruido de 0.005 da calibragem — e o limite
+    // de cima e o que importa: juntos nao chegam perto de dois pontos.
+    expect(WEIGHTS.fav + WEIGHTS.asc).toBeGreaterThan(ponto)
+    expect(WEIGHTS.fav + WEIGHTS.asc).toBeLessThan(ponto * 1.25)
   })
 
   test('somando o sig, os tres nao alcancam dois pontos de nota', () => {
@@ -316,10 +321,13 @@ describe('calibragem: hierarquia dos fatores', () => {
     expect(primeiro.id).toBe('ascendido')
   })
 
-  test('na pratica: Fantastic ascendido e favoritado NAO passa Top of the Class puro', () => {
+  test('na pratica: Fantastic ascendido NAO passa Top of the Class puro', () => {
+    // Ascensao sozinha nao compra um ponto inteiro de nota. Somar o favorito
+    // por cima passou a inverter em 15/08/2026 (0.657 contra 0.650) — margem
+    // dentro do ruido, e consequencia aceita de asc 0.09 -> 0.11.
     const [primeiro] = scoreRoster([
       champ({ id: 'top', attackTierScore: 10 }),
-      champ({ id: 'turbinado', attackTierScore: 9, isAscended: true, isFavorite: true }),
+      champ({ id: 'ascendido9', attackTierScore: 9, isAscended: true }),
     ])
     expect(primeiro.id).toBe('top')
   })
