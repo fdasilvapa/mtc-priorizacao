@@ -1,4 +1,5 @@
 import { MAX_RANK } from '@/lib/scoring/config'
+import { NumberStepper } from './NumberStepper'
 
 const FIELD = 'w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-base'
 
@@ -26,18 +27,7 @@ export function ChampionFields({ defaults }: { defaults: ChampionFieldDefaults }
         </select>
       </label>
 
-      <label className="block space-y-1">
-        <span className="text-sm text-neutral-400">Nivel de sig (0 a 200)</span>
-        <input
-          type="number"
-          name="sigLevel"
-          min={0}
-          max={200}
-          defaultValue={defaults.sigLevel}
-          inputMode="numeric"
-          className={FIELD}
-        />
-      </label>
+      <NumberStepper name="sigLevel" label="Nivel de sig" defaultValue={defaults.sigLevel} min={0} max={200} />
 
       <label className="flex items-center gap-3">
         <input
