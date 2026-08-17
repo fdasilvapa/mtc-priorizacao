@@ -1,5 +1,5 @@
-import { MAX_RANK } from '@/lib/scoring/config'
 import { NumberStepper } from './NumberStepper'
+import { RankPicker } from './RankPicker'
 
 const FIELD = 'w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-base'
 
@@ -16,16 +16,7 @@ export type ChampionFieldDefaults = {
 export function ChampionFields({ defaults }: { defaults: ChampionFieldDefaults }) {
   return (
     <>
-      <label className="block space-y-1">
-        <span className="text-sm text-neutral-400">Rank atual</span>
-        <select name="currentRank" defaultValue={defaults.currentRank} className={FIELD}>
-          {Array.from({ length: MAX_RANK }, (_, i) => i + 1).map((r) => (
-            <option key={r} value={r}>
-              R{r}
-            </option>
-          ))}
-        </select>
-      </label>
+      <RankPicker name="currentRank" defaultValue={defaults.currentRank} />
 
       <NumberStepper name="sigLevel" label="Nivel de sig" defaultValue={defaults.sigLevel} min={0} max={200} />
 
