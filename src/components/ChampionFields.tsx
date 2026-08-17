@@ -1,7 +1,6 @@
 import { NumberStepper } from './NumberStepper'
 import { RankPicker } from './RankPicker'
-
-const FIELD = 'w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-base'
+import { ToggleRow } from './ToggleRow'
 
 export type ChampionFieldDefaults = {
   currentRank: number
@@ -20,15 +19,7 @@ export function ChampionFields({ defaults }: { defaults: ChampionFieldDefaults }
 
       <NumberStepper name="sigLevel" label="Nivel de sig" defaultValue={defaults.sigLevel} min={0} max={200} />
 
-      <label className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          name="isAscended"
-          defaultChecked={defaults.isAscended}
-          className="size-5"
-        />
-        <span className="text-sm">Ascendido</span>
-      </label>
+      <ToggleRow name="isAscended" label="Ascendido" defaultChecked={defaults.isAscended} />
     </>
   )
 }

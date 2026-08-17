@@ -32,7 +32,7 @@ export function ChampionActions({ id, currentRank, isFavorite }: Props) {
             await rankUp(id)
           })
         }
-        className="flex-1 rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-neutral-950 disabled:opacity-40"
+        className="flex-1 rounded-lg bg-amber-500 min-h-11 px-3 py-2 text-sm font-semibold text-neutral-950 disabled:opacity-40"
       >
         {maxed ? 'Rank maximo' : `Subir para R${optimisticRank + 1}`}
       </button>
@@ -47,7 +47,7 @@ export function ChampionActions({ id, currentRank, isFavorite }: Props) {
             await toggleFavorite(id, !optimisticFav)
           })
         }
-        className={`rounded-lg border px-3 py-2 text-sm ${
+        className={`rounded-lg border min-h-11 min-w-11 px-3 py-2 text-base ${
           optimisticFav
             ? 'border-amber-500 text-amber-400'
             : 'border-neutral-700 text-neutral-400'

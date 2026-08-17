@@ -39,7 +39,10 @@ export function EditChampionForm({ champion }: { champion: RosterChampion }) {
 
       <form action={deleteChampion}>
         <input type="hidden" name="id" value={champion.id} />
-        <button type="submit" className="w-full py-2 text-sm text-red-400 underline">
+        <button
+          type="submit"
+          className="min-h-11 w-full rounded-lg border border-red-900 px-4 py-2 text-sm text-red-400"
+        >
           Remover do roster
         </button>
       </form>
