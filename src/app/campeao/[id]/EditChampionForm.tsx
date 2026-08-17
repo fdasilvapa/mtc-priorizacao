@@ -14,6 +14,7 @@ export function EditChampionForm({ champion }: { champion: RosterChampion }) {
     <div className="space-y-8">
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="id" value={champion.id} />
+        <input type="hidden" name="nome" value={champion.name} />
 
         <ChampionFields
           defaults={{
@@ -24,9 +25,6 @@ export function EditChampionForm({ champion }: { champion: RosterChampion }) {
         />
 
         {state.status === 'error' && <p className="text-sm text-red-400">{state.message}</p>}
-        {state.status === 'saved' && (
-          <p className="text-sm text-emerald-400">Alteracoes salvas.</p>
-        )}
 
         <button
           type="submit"

@@ -2,15 +2,16 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import { ChampionCard } from '@/components/ChampionCard'
 import { RosterFilters } from '@/components/RosterFilters'
+import { SavedBanner } from '@/components/SavedBanner'
 import { SignOutButton } from '@/components/SignOutButton'
 import { getRoster } from '@/lib/roster'
 
 type Props = {
-  searchParams: Promise<{ classe?: string; rank?: string; busca?: string }>
+  searchParams: Promise<{ classe?: string; rank?: string; busca?: string; salvo?: string }>
 }
 
 export default async function HomePage({ searchParams }: Props) {
-  const { classe, rank, busca } = await searchParams
+  const { classe, rank, busca, salvo } = await searchParams
   const roster = await getRoster()
 
   const filtrado = roster.filter((c) => {
@@ -31,6 +32,8 @@ export default async function HomePage({ searchParams }: Props) {
           <SignOutButton />
         </div>
       </header>
+
+      {salvo !== undefined && <SavedBanner nome={salvo} />}
 
       <Suspense>
         <RosterFilters />
