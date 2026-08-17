@@ -23,8 +23,8 @@ export default async function HomePage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-5xl p-4 pb-16">
-      <header className="mb-4 flex items-center justify-between gap-4">
-        <h1 className="text-xl font-bold">Prioridade de rank up</h1>
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="min-w-0 text-xl font-bold">Prioridade de rank up</h1>
         <div className="flex items-center gap-4">
           <Link href="/adicionar" className="text-sm font-semibold text-amber-400">
             + Adicionar

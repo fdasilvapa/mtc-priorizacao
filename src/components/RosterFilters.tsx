@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { MAX_RANK } from '@/lib/scoring/config'
 import { MCOC_CLASSES } from '@/lib/scoring/types'
 
-const FIELD = 'rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm'
+const FIELD = 'rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm min-h-11'
 
 /** Estado na URL: sobrevive ao refresh e da para salvar o link. */
 export function RosterFilters() {
@@ -25,13 +25,13 @@ export function RosterFilters() {
         placeholder="Buscar por nome"
         defaultValue={params.get('busca') ?? ''}
         onChange={(e) => setParam('busca', e.target.value)}
-        className={`${FIELD} min-w-0 flex-1`}
+        className={`${FIELD} basis-full`}
       />
 
       <select
         value={params.get('classe') ?? ''}
         onChange={(e) => setParam('classe', e.target.value)}
-        className={FIELD}
+        className={`${FIELD} min-w-0 flex-1`}
       >
         <option value="">Toda classe</option>
         {MCOC_CLASSES.map((c) => (
@@ -44,7 +44,7 @@ export function RosterFilters() {
       <select
         value={params.get('rank') ?? ''}
         onChange={(e) => setParam('rank', e.target.value)}
-        className={FIELD}
+        className={`${FIELD} min-w-0 flex-1`}
       >
         <option value="">Todo rank</option>
         {Array.from({ length: MAX_RANK }, (_, i) => i + 1).map((r) => (
