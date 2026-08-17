@@ -12,6 +12,13 @@ import type { CatalystCost, CatalystKey } from './types'
  *             atual os mesmos 3 ascendidos ficam no top 20 com 0.09 ou 0.11,
  *             porque 5 dos 9 ascendidos tem tier ou classe fracos e nao
  *             deveriam ser resgatados por ascensao.
+ *
+ *             Efeito colateral aceito: fav + asc (0.06 + 0.11 = 0.17) agora
+ *             passa de um ponto cheio de tier (0.49 / 3 = 0.16333). Um
+ *             Fantastic (9.0) ascendido e favorito ultrapassa um Top of the
+ *             Class (10) parado. Ficou assim de proposito ao subir asc para
+ *             0.11; se isso incomodar numa proxima calibragem, baixar fav
+ *             junto e a forma mais direta de fechar a folga.
  *   sig 0.07  abaixo de uma faixa. Mede o gap que falta, nao a razao.
  *   fav 0.06  desempate do dono, sem forca para inverter uma faixa de tier.
  *

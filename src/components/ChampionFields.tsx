@@ -9,8 +9,10 @@ export type ChampionFieldDefaults = {
 }
 
 /**
- * Campos comuns a adicionar e editar. Sem 'use client': sao inputs nao
- * controlados, lidos pelo FormData da action que envolve o formulario.
+ * Campos comuns a adicionar e editar. RankPicker e NumberStepper sao
+ * 'use client' e guardam estado proprio, que espelham no FormData (um
+ * input escondido e um input com value controlado, respectivamente);
+ * ToggleRow continua um checkbox nao controlado comum.
  */
 export function ChampionFields({ defaults }: { defaults: ChampionFieldDefaults }) {
   return (

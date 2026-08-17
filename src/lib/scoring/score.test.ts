@@ -47,6 +47,10 @@ describe('rankPoints', () => {
     // mas para medir o quanto uma classe esta servida ele conta igual aos outros.
     expect(rankPoints(5) - rankPoints(4)).toBe(rankPoints(2) - rankPoints(1))
   })
+
+  test('nunca fica negativo, para uma linha invalida nao subtrair da classe', () => {
+    expect(rankPoints(0)).toBe(0)
+  })
 })
 
 describe('buildRosterContext', () => {
@@ -302,8 +306,9 @@ describe('calibragem: hierarquia dos fatores', () => {
   test('favorito + ascendido juntos passam de um ponto de nota, mas por pouco', () => {
     // Invertida em 15/08/2026, quando asc subiu de 0.09 para 0.11: os dois
     // bonus do dono somados passaram a virar um ponto inteiro de tier. A
-    // margem e de 0.0067 — dentro do ruido de 0.005 da calibragem. O limite de
-    // cima trava a folga: mesmo somados, fav + asc ficam no maximo um quarto
+    // margem e de 0.0067 — logo acima do ruido de 0.005 da calibragem, ou
+    // seja, uma reordenacao real, nao um empate tecnico. O limite de cima
+    // trava a folga: mesmo somados, fav + asc ficam no maximo um quarto
     // acima de um ponto de nota, bem longe de valerem dois pontos completos.
     expect(WEIGHTS.fav + WEIGHTS.asc).toBeGreaterThan(ponto)
     expect(WEIGHTS.fav + WEIGHTS.asc).toBeLessThan(ponto * 1.25)
@@ -325,7 +330,8 @@ describe('calibragem: hierarquia dos fatores', () => {
   test('na pratica: Fantastic ascendido NAO passa Top of the Class puro', () => {
     // Ascensao sozinha nao compra um ponto inteiro de nota. Somar o favorito
     // por cima passou a inverter em 15/08/2026 (0.657 contra 0.650) — margem
-    // dentro do ruido, e consequencia aceita de asc 0.09 -> 0.11.
+    // logo acima do ruido, uma reordenacao real, e consequencia aceita de
+    // asc 0.09 -> 0.11.
     const [primeiro] = scoreRoster([
       champ({ id: 'top', attackTierScore: 10 }),
       champ({ id: 'ascendido9', attackTierScore: 9, isAscended: true }),
