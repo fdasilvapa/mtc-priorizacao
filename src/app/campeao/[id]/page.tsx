@@ -16,7 +16,10 @@ export default async function ChampionPage({
 
   return (
     <main className="mx-auto max-w-md p-4">
-      <Link href="/" className="text-sm text-neutral-400 underline">
+      <Link
+        href="/"
+        className="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm text-neutral-400 underline"
+      >
         Voltar
       </Link>
 
