@@ -25,13 +25,13 @@ export function RosterFilters() {
         placeholder="Buscar por nome"
         defaultValue={params.get('busca') ?? ''}
         onChange={(e) => setParam('busca', e.target.value)}
-        className={`${FIELD} basis-full`}
+        className={`${FIELD} min-w-0 basis-full sm:basis-auto sm:flex-1`}
       />
 
       <select
         value={params.get('classe') ?? ''}
         onChange={(e) => setParam('classe', e.target.value)}
-        className={`${FIELD} min-w-0 flex-1`}
+        className={`${FIELD} min-w-0 flex-1 sm:flex-none`}
       >
         <option value="">Toda classe</option>
         {MCOC_CLASSES.map((c) => (
@@ -44,7 +44,7 @@ export function RosterFilters() {
       <select
         value={params.get('rank') ?? ''}
         onChange={(e) => setParam('rank', e.target.value)}
-        className={`${FIELD} min-w-0 flex-1`}
+        className={`${FIELD} min-w-0 flex-1 sm:flex-none`}
       >
         <option value="">Todo rank</option>
         {Array.from({ length: MAX_RANK }, (_, i) => i + 1).map((r) => (
