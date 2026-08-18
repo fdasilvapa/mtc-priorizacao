@@ -11,31 +11,33 @@ import { MCOC_CLASSES } from './types'
 import type { McocClass, RosterChampion, RosterContext, ScoredChampion } from './types'
 
 /**
- * Custo ja pago para levar um campeao do R1 ate o rank atual, na mesma unidade
- * de collapseCost (o rank up 1->2 vale 1.0).
+ * Quantos rank ups o campeao ja recebeu. R1 = 0, R5 = 4.
+ *
+ * Substituiu uma soma de collapseCost em 15/08/2026. Com custo, um R5 valia
+ * 12,76 — mais que doze R2 — e no roster real um unico campeao maxado passou a
+ * definir o denominador do fator de classe inteiro, apesar de campeoes no rank
+ * maximo receberem score 0 e nem entrarem no ranking.
  */
-export function investedInRank(rank: number): number {
-  let total = 0
-  for (let r = 1; r < rank; r++) total += collapseCost(r)
-  return total
+export function rankPoints(rank: number): number {
+  return Math.max(0, rank - 1)
 }
 
 /**
- * Agrega o roster inteiro uma unica vez: quanto custo ja foi pago em cada
- * classe. E o insumo do fator de equilibrio de classe.
+ * Agrega o roster inteiro uma unica vez: quantos pontos de rank cada classe ja
+ * acumulou. E o insumo do fator de equilibrio de classe.
  */
 export function buildRosterContext(roster: RosterChampion[]): RosterContext {
-  const classInvestment = Object.fromEntries(
+  const classRankPoints = Object.fromEntries(
     MCOC_CLASSES.map((c) => [c, 0]),
   ) as Record<McocClass, number>
 
   for (const champion of roster) {
-    classInvestment[champion.championClass] += investedInRank(champion.currentRank)
+    classRankPoints[champion.championClass] += rankPoints(champion.currentRank)
   }
 
   return {
-    classInvestment,
-    maxClassInvestment: Math.max(...Object.values(classInvestment)),
+    classRankPoints,
+    maxClassRankPoints: Math.max(...Object.values(classRankPoints)),
   }
 }
 
@@ -60,9 +62,9 @@ export function weightedScore(
   const sRank = (MAX_RANK - champion.currentRank) / (MAX_RANK - 1)
 
   const sClass =
-    context.maxClassInvestment === 0
+    context.maxClassRankPoints === 0
       ? 0
-      : 1 - context.classInvestment[champion.championClass] / context.maxClassInvestment
+      : 1 - context.classRankPoints[champion.championClass] / context.maxClassRankPoints
 
   // O que importa e quanto sig ainda FALTA, nao a fracao ja percorrida: quem
   // precisa de 20 e esta em 0 esta a um passo de pronto, e a razao antiga o

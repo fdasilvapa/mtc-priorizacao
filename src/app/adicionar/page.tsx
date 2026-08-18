@@ -9,7 +9,10 @@ export default async function AdicionarPage() {
     <main className="mx-auto max-w-md p-4">
       <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-xl font-bold">Adicionar campeao</h1>
-        <Link href="/" className="text-sm text-neutral-400 underline">
+        <Link
+          href="/"
+          className="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm text-neutral-400 underline"
+        >
           Voltar
         </Link>
       </header>

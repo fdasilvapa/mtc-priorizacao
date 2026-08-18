@@ -3,32 +3,41 @@ import type { CatalystCost, CatalystKey } from './types'
 /**
  * Pesos da media ponderada. Somam 1.0.
  *
- * Calibrados em 01/08/2026 contra o roster real (91 campeoes), nao so contra a
- * tier list. Com TIER_SCORE_FLOOR = 7 e tier em 0.49, uma faixa de tier
- * (0,5 de nota) vale 0.0817 no termo ponderado — a referencia para dimensionar
- * o resto:
+ * Recalibrados em 15/08/2026 contra o roster real (100 campeoes). Com
+ * TIER_SCORE_FLOOR = 7 e tier em 0.49, uma faixa de tier (0,5 de nota) vale
+ * 0.0817 no termo ponderado — a referencia para dimensionar o resto:
  *
- *   asc 0.09  ascender vale pouco mais que uma faixa de tier, de proposito:
- *             ascensao virou um salto de poder real no jogo. Subiu de 0.08
- *             junto com tier — o que se preserva e a RELACAO com a faixa, nao
- *             o numero absoluto.
+ *   asc 0.11  subiu de 0.09. Ascensao virou um salto de poder real no jogo.
+ *             Vale 1.35x uma faixa de tier. E um ajuste DIRECIONAL: no roster
+ *             atual os mesmos 3 ascendidos ficam no top 20 com 0.09 ou 0.11,
+ *             porque 5 dos 9 ascendidos tem tier ou classe fracos e nao
+ *             deveriam ser resgatados por ascensao.
+ *
+ *             Efeito colateral aceito: fav + asc (0.06 + 0.11 = 0.17) agora
+ *             passa de um ponto cheio de tier (0.49 / 3 = 0.16333). Um
+ *             Fantastic (9.0) ascendido e favorito ultrapassa um Top of the
+ *             Class (10) parado. Ficou assim de proposito ao subir asc para
+ *             0.11; se isso incomodar numa proxima calibragem, baixar fav
+ *             junto e a forma mais direta de fechar a folga.
  *   sig 0.07  abaixo de uma faixa. Mede o gap que falta, nao a razao.
  *   fav 0.06  desempate do dono, sem forca para inverter uma faixa de tier.
  *
- * rank caiu de 0.20 para 0.14: ele contava a mesma coisa que o divisor de
- * custo, que tambem favorece rank baixo. Somados valiam mais que a tier list.
+ * rank caiu de 0.14 para 0.12 para financiar asc. A medicao sustenta tirar
+ * dali: entre os elegiveis (R1-R4), R1 e 60% do roster mas so 40% do top 20 —
+ * ja esta sub-representado. A percepcao de que campeoes R1 apareciam alto
+ * demais rastreava para o fator de classe do Skill, nao para o peso de rank.
  *
- * Uma advertencia medida: o top 20 do roster cabe numa faixa de 0.103, com
- * 0.0054 entre vizinhos. Nenhum peso aqui e ajuste fino — mexer 0.01 reordena
- * o topo de forma visivel, e diferencas abaixo de 0.005 sao ruido.
+ * Uma advertencia medida: o top 20 do roster cabe numa faixa estreita. Nenhum
+ * peso aqui e ajuste fino — mexer 0.01 reordena o topo de forma visivel, e
+ * diferencas abaixo de 0.005 sao ruido.
  */
 export const WEIGHTS = {
   tier: 0.49,
-  rank: 0.14,
+  rank: 0.12,
   class: 0.15,
   sig: 0.07,
   fav: 0.06,
-  asc: 0.09,
+  asc: 0.11,
 } as const
 
 /**

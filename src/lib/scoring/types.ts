@@ -28,12 +28,16 @@ export interface RosterChampion {
 
 /**
  * Agregados do roster inteiro, calculados uma unica vez.
- * O investimento por classe e a base do fator de equilibrio: ele mede o custo
- * ja pago em cada classe, nao quantos campeoes cruzaram um limiar de rank.
+ *
+ * Pontos de rank, NAO custo de catalisador: collapseCost responde "quanto vai
+ * me custar subir este campeao", calibrado contra a taxa de aquisicao do dono.
+ * O fator de classe faz outra pergunta — "quao bem servida essa classe ja
+ * esta" — e poder de combate cresce muito mais suavemente entre ranks do que
+ * custo cresce. Cada rank up conta igual aqui, de proposito.
  */
 export interface RosterContext {
-  classInvestment: Record<McocClass, number>
-  maxClassInvestment: number
+  classRankPoints: Record<McocClass, number>
+  maxClassRankPoints: number
 }
 
 export interface ScoredChampion extends RosterChampion {

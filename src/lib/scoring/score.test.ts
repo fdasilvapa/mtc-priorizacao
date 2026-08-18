@@ -4,8 +4,8 @@ import { collapseCost } from './cost'
 import {
   buildRosterContext,
   calculatePriorityScore,
-  investedInRank,
   normalizeTier,
+  rankPoints,
   scoreRoster,
   weightedScore,
 } from './score'
@@ -30,45 +30,84 @@ function champ(over: Partial<RosterChampion> = {}): RosterChampion {
 
 const semContexto = buildRosterContext([])
 
-describe('investedInRank', () => {
-  test('R1 nao teve investimento nenhum', () => {
-    expect(investedInRank(1)).toBe(0)
+describe('rankPoints', () => {
+  test('R1 nao teve rank up nenhum', () => {
+    expect(rankPoints(1)).toBe(0)
   })
 
-  test('cada rank acumula o custo de todos os rank ups anteriores', () => {
-    expect(investedInRank(2)).toBeCloseTo(collapseCost(1), 10)
-    expect(investedInRank(3)).toBeCloseTo(collapseCost(1) + collapseCost(2), 10)
-    expect(investedInRank(5)).toBeCloseTo(
-      collapseCost(1) + collapseCost(2) + collapseCost(3) + collapseCost(4),
-      10,
-    )
+  test('cada rank vale um ponto a mais que o anterior', () => {
+    expect(rankPoints(2)).toBe(1)
+    expect(rankPoints(3)).toBe(2)
+    expect(rankPoints(4)).toBe(3)
+    expect(rankPoints(5)).toBe(4)
   })
 
-  test('o investimento cresce mais rapido nos ranks altos', () => {
-    const doR1AoR2 = investedInRank(2) - investedInRank(1)
-    const doR3AoR4 = investedInRank(4) - investedInRank(3)
-    expect(doR3AoR4).toBeGreaterThan(doR1AoR2 * 2)
+  test('nao depende da escassez de catalisador', () => {
+    // O ponto da mudanca: subir de R4 para R5 e o rank up mais caro do jogo,
+    // mas para medir o quanto uma classe esta servida ele conta igual aos outros.
+    expect(rankPoints(5) - rankPoints(4)).toBe(rankPoints(2) - rankPoints(1))
+  })
+
+  test('nunca fica negativo, para uma linha invalida nao subtrair da classe', () => {
+    expect(rankPoints(0)).toBe(0)
   })
 })
 
 describe('buildRosterContext', () => {
-  test('soma o investimento de todos os campeoes da classe, sem limiar de rank', () => {
+  test('soma os pontos de todos os campeoes da classe, sem limiar de rank', () => {
     const ctx = buildRosterContext([
       champ({ id: 'a', championClass: 'Mutant', currentRank: 4 }),
       champ({ id: 'b', championClass: 'Mutant', currentRank: 2 }),
       champ({ id: 'c', championClass: 'Tech', currentRank: 3 }),
     ])
-    expect(ctx.classInvestment.Mutant).toBeCloseTo(investedInRank(4) + investedInRank(2), 10)
-    expect(ctx.classInvestment.Tech).toBeCloseTo(investedInRank(3), 10)
-    expect(ctx.classInvestment.Cosmic).toBe(0)
-    expect(ctx.maxClassInvestment).toBeCloseTo(investedInRank(4) + investedInRank(2), 10)
+
+    expect(ctx.classRankPoints.Mutant).toBe(4)
+    expect(ctx.classRankPoints.Tech).toBe(2)
+    expect(ctx.classRankPoints.Science).toBe(0)
+    expect(ctx.maxClassRankPoints).toBe(4)
+  })
+
+  test('um unico R5 nao torna a classe a mais servida do roster', () => {
+    // Guarda contra o defeito de 15/08/2026: com investimento por custo, o
+    // Serpente (R5, unico rank up alto do Cosmic) valia 12,76 e sozinho fazia
+    // a classe parecer a mais investida, apesar de nem entrar no ranking.
+    const ctx = buildRosterContext([
+      champ({ id: 'r5', championClass: 'Cosmic', currentRank: 5 }),
+      champ({ id: 'm1', championClass: 'Mystic', currentRank: 2 }),
+      champ({ id: 'm2', championClass: 'Mystic', currentRank: 2 }),
+      champ({ id: 'm3', championClass: 'Mystic', currentRank: 2 }),
+      champ({ id: 'm4', championClass: 'Mystic', currentRank: 2 }),
+      champ({ id: 'm5', championClass: 'Mystic', currentRank: 2 }),
+    ])
+
+    expect(ctx.classRankPoints.Mystic).toBeGreaterThan(ctx.classRankPoints.Cosmic)
+    expect(ctx.maxClassRankPoints).toBe(ctx.classRankPoints.Mystic)
+  })
+
+  test('a classe com mais campeoes upados recebe o menor bonus de carencia', () => {
+    // Guarda contra a inversao relatada pelo dono: o Mystic tinha mais
+    // campeoes em R2+ que qualquer classe e ainda recebia bonus de carente.
+    const roster = [
+      ...Array.from({ length: 5 }, (_, i) =>
+        champ({ id: `myst-${i}`, championClass: 'Mystic', currentRank: 2 }),
+      ),
+      ...Array.from({ length: 2 }, (_, i) =>
+        champ({ id: `tech-${i}`, championClass: 'Tech', currentRank: 2 }),
+      ),
+    ]
+    const ctx = buildRosterContext(roster)
+
+    const sClassDe = (championClass: McocClass) =>
+      1 - ctx.classRankPoints[championClass] / ctx.maxClassRankPoints
+
+    expect(sClassDe('Mystic')).toBeLessThan(sClassDe('Tech'))
   })
 
   test('um rank up de R1 para R2 move o fator — era o defeito do limiar em R3', () => {
     const antes = buildRosterContext([champ({ championClass: 'Mystic', currentRank: 1 })])
     const depois = buildRosterContext([champ({ championClass: 'Mystic', currentRank: 2 })])
-    expect(antes.classInvestment.Mystic).toBe(0)
-    expect(depois.classInvestment.Mystic).toBeGreaterThan(0)
+    expect(antes.classRankPoints.Mystic).toBe(0)
+    expect(depois.classRankPoints.Mystic).toBeGreaterThan(0)
   })
 
   test('roster inteiro em R1 zera tudo sem dividir por zero', () => {
@@ -76,16 +115,16 @@ describe('buildRosterContext', () => {
       champ({ id: 'a', championClass: 'Skill', currentRank: 1 }),
       champ({ id: 'b', championClass: 'Tech', currentRank: 1 }),
     ])
-    expect(ctx.maxClassInvestment).toBe(0)
+    expect(ctx.maxClassRankPoints).toBe(0)
     expect(calculatePriorityScore(champ({ championClass: 'Skill', currentRank: 1 }), ctx)).toBeGreaterThan(0)
   })
 
   test('roster vazio nao quebra e zera o maximo', () => {
-    expect(semContexto.maxClassInvestment).toBe(0)
-    expect(semContexto.classInvestment.Skill).toBe(0)
+    expect(semContexto.maxClassRankPoints).toBe(0)
+    expect(semContexto.classRankPoints.Skill).toBe(0)
   })
 
-  test('a classe menos investida recebe o bonus maximo', () => {
+  test('a classe com menos pontos de rank recebe o bonus maximo', () => {
     const ctx = buildRosterContext([
       champ({ id: 'a', championClass: 'Mystic', currentRank: 4 }),
       champ({ id: 'b', championClass: 'Mystic', currentRank: 4 }),
@@ -264,8 +303,15 @@ describe('calibragem: hierarquia dos fatores', () => {
     expect(WEIGHTS.asc - faixa).toBeLessThan(faixa / 2)
   })
 
-  test('favorito + ascendido juntos nao alcancam um ponto inteiro de nota', () => {
-    expect(WEIGHTS.fav + WEIGHTS.asc).toBeLessThan(ponto)
+  test('favorito + ascendido juntos passam de um ponto de nota, mas por pouco', () => {
+    // Invertida em 15/08/2026, quando asc subiu de 0.09 para 0.11: os dois
+    // bonus do dono somados passaram a virar um ponto inteiro de tier. A
+    // margem e de 0.0067 — logo acima do ruido de 0.005 da calibragem, ou
+    // seja, uma reordenacao real, nao um empate tecnico. O limite de cima
+    // trava a folga: mesmo somados, fav + asc ficam no maximo um quarto
+    // acima de um ponto de nota, bem longe de valerem dois pontos completos.
+    expect(WEIGHTS.fav + WEIGHTS.asc).toBeGreaterThan(ponto)
+    expect(WEIGHTS.fav + WEIGHTS.asc).toBeLessThan(ponto * 1.25)
   })
 
   test('somando o sig, os tres nao alcancam dois pontos de nota', () => {
@@ -281,10 +327,14 @@ describe('calibragem: hierarquia dos fatores', () => {
     expect(primeiro.id).toBe('ascendido')
   })
 
-  test('na pratica: Fantastic ascendido e favoritado NAO passa Top of the Class puro', () => {
+  test('na pratica: Fantastic ascendido NAO passa Top of the Class puro', () => {
+    // Ascensao sozinha nao compra um ponto inteiro de nota. Somar o favorito
+    // por cima passou a inverter em 15/08/2026 (0.657 contra 0.650) — margem
+    // logo acima do ruido, uma reordenacao real, e consequencia aceita de
+    // asc 0.09 -> 0.11.
     const [primeiro] = scoreRoster([
       champ({ id: 'top', attackTierScore: 10 }),
-      champ({ id: 'turbinado', attackTierScore: 9, isAscended: true, isFavorite: true }),
+      champ({ id: 'ascendido9', attackTierScore: 9, isAscended: true }),
     ])
     expect(primeiro.id).toBe('top')
   })

@@ -2,15 +2,16 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import { ChampionCard } from '@/components/ChampionCard'
 import { RosterFilters } from '@/components/RosterFilters'
+import { SavedBanner } from '@/components/SavedBanner'
 import { SignOutButton } from '@/components/SignOutButton'
 import { getRoster } from '@/lib/roster'
 
 type Props = {
-  searchParams: Promise<{ classe?: string; rank?: string; busca?: string }>
+  searchParams: Promise<{ classe?: string; rank?: string; busca?: string; salvo?: string }>
 }
 
 export default async function HomePage({ searchParams }: Props) {
-  const { classe, rank, busca } = await searchParams
+  const { classe, rank, busca, salvo } = await searchParams
   const roster = await getRoster()
 
   const filtrado = roster.filter((c) => {
@@ -22,15 +23,24 @@ export default async function HomePage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-5xl p-4 pb-16">
-      <header className="mb-4 flex items-center justify-between gap-4">
-        <h1 className="text-xl font-bold">Prioridade de rank up</h1>
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h1 className="min-w-0 text-xl font-bold">Prioridade de rank up</h1>
         <div className="flex items-center gap-4">
-          <Link href="/adicionar" className="text-sm font-semibold text-amber-400">
+          <Link
+            href="/adicionar"
+            className="flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-semibold text-amber-400"
+          >
             + Adicionar
           </Link>
           <SignOutButton />
         </div>
       </header>
+
+      {salvo !== undefined && (
+        <Suspense>
+          <SavedBanner nome={salvo} />
+        </Suspense>
+      )}
 
       <Suspense>
         <RosterFilters />

@@ -14,6 +14,7 @@ export function EditChampionForm({ champion }: { champion: RosterChampion }) {
     <div className="space-y-8">
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="id" value={champion.id} />
+        <input type="hidden" name="nome" value={champion.name} />
 
         <ChampionFields
           defaults={{
@@ -24,9 +25,6 @@ export function EditChampionForm({ champion }: { champion: RosterChampion }) {
         />
 
         {state.status === 'error' && <p className="text-sm text-red-400">{state.message}</p>}
-        {state.status === 'saved' && (
-          <p className="text-sm text-emerald-400">Alteracoes salvas.</p>
-        )}
 
         <button
           type="submit"
@@ -39,7 +37,10 @@ export function EditChampionForm({ champion }: { champion: RosterChampion }) {
 
       <form action={deleteChampion}>
         <input type="hidden" name="id" value={champion.id} />
-        <button type="submit" className="w-full py-2 text-sm text-red-400 underline">
+        <button
+          type="submit"
+          className="min-h-11 w-full rounded-lg border border-red-900 px-4 py-2 text-sm text-red-400"
+        >
           Remover do roster
         </button>
       </form>

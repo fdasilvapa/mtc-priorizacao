@@ -1,6 +1,6 @@
-import { MAX_RANK } from '@/lib/scoring/config'
-
-const FIELD = 'w-full rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-3 text-base'
+import { NumberStepper } from './NumberStepper'
+import { RankPicker } from './RankPicker'
+import { ToggleRow } from './ToggleRow'
 
 export type ChampionFieldDefaults = {
   currentRank: number
@@ -9,45 +9,19 @@ export type ChampionFieldDefaults = {
 }
 
 /**
- * Campos comuns a adicionar e editar. Sem 'use client': sao inputs nao
- * controlados, lidos pelo FormData da action que envolve o formulario.
+ * Campos comuns a adicionar e editar. RankPicker e NumberStepper sao
+ * 'use client' e guardam estado proprio, que espelham no FormData (um
+ * input escondido e um input com value controlado, respectivamente);
+ * ToggleRow continua um checkbox nao controlado comum.
  */
 export function ChampionFields({ defaults }: { defaults: ChampionFieldDefaults }) {
   return (
     <>
-      <label className="block space-y-1">
-        <span className="text-sm text-neutral-400">Rank atual</span>
-        <select name="currentRank" defaultValue={defaults.currentRank} className={FIELD}>
-          {Array.from({ length: MAX_RANK }, (_, i) => i + 1).map((r) => (
-            <option key={r} value={r}>
-              R{r}
-            </option>
-          ))}
-        </select>
-      </label>
+      <RankPicker name="currentRank" defaultValue={defaults.currentRank} />
 
-      <label className="block space-y-1">
-        <span className="text-sm text-neutral-400">Nivel de sig (0 a 200)</span>
-        <input
-          type="number"
-          name="sigLevel"
-          min={0}
-          max={200}
-          defaultValue={defaults.sigLevel}
-          inputMode="numeric"
-          className={FIELD}
-        />
-      </label>
+      <NumberStepper name="sigLevel" label="Nivel de sig" defaultValue={defaults.sigLevel} min={0} max={200} />
 
-      <label className="flex items-center gap-3">
-        <input
-          type="checkbox"
-          name="isAscended"
-          defaultChecked={defaults.isAscended}
-          className="size-5"
-        />
-        <span className="text-sm">Ascendido</span>
-      </label>
+      <ToggleRow name="isAscended" label="Ascendido" defaultChecked={defaults.isAscended} />
     </>
   )
 }
