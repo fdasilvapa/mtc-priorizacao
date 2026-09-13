@@ -39,9 +39,13 @@
 
 BEGIN;
 
-CREATE TEMP TABLE tier_list
-  (name, champion_class, attack_tier_score, attack_recommended_sig, name_en, has_7star)
-ON COMMIT DROP AS VALUES
+-- A temporaria copia os tipos da tabela real (champion_class e enum): criada
+-- direto de VALUES ela teria text, e o INSERT ... SELECT nao converte sozinho.
+CREATE TEMP TABLE tier_list ON COMMIT DROP AS
+SELECT name, champion_class, attack_tier_score, attack_recommended_sig, name_en, has_7star
+FROM base_champions WITH NO DATA;
+
+INSERT INTO tier_list VALUES
   ('O serpente',                        'Cosmic',   10,    200,  'The Serpent',                    true),
   ('Karolina Dean',                     'Cosmic',   10,    200,  'Karolina Dean',                  true),
   ('Thanos (Imortal)',                  'Cosmic',   10,    200,  'Thanos (Deathless)',             true),
