@@ -3,13 +3,14 @@
 
     python3 supabase/gerar_seed_tier_list.py caminho/tier_list_fundida.csv
 
-O CSV de entrada e a fusao 50/50 por percentil entre a planilha do dono e o
-mcoc.app. Colunas esperadas:
+O CSV de entrada e a saida de fundir_tier_list.py: a fusao 50/50 por
+percentil entre a planilha do dono e o mcoc.app. Colunas esperadas:
 
     nome, classe, nota_ataque, sig_recomendado, tier_origem, nome_en,
     faixa_anterior, nota_anterior, regra, high_skill, sem_7_estrelas
 
 As tres ultimas sao de auditoria; so `sem_7_estrelas` vira coluna no banco.
+nome_en "?" (campeao que ainda nao saiu no mcoc.app) vira NULL no banco.
 
 O script ABORTA sem escrever nada se qualquer linha falhar na validacao. Um
 seed que roda e grava lixo e pior que um que falha: o `ON CONFLICT DO UPDATE`
@@ -23,11 +24,12 @@ import pathlib
 import sys
 
 CLASSES = {"Cosmic", "Tech", "Science", "Mutant", "Mystic", "Skill"}
-SIGS = {"0", "20", "60", "80", "200"}
+SIGS = {"0", "20", "40", "60", "80", "200"}
 FAIXAS = [
     "Top of the Class", "Incredible", "Fantastic", "Great",
     "Very Good", "Good", "Mediocre", "Awful",
 ]
+SEM_NOME_EN = "?"
 DESTINO = pathlib.Path(__file__).parent / "seed_tier_list.sql"
 
 
@@ -51,13 +53,18 @@ def validar(rows: list[dict]) -> list[str]:
     # com outra tier list. Barato de checar, caro de descobrir depois.
     for col in ("nome", "nome_en"):
         for valor, n in collections.Counter(r[col] for r in rows).items():
-            if n > 1:
+            if n > 1 and valor != SEM_NOME_EN:
                 erros.append(f"{col} duplicado: {valor!r} ({n}x)")
     return erros
 
 
 def aspas(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
+
+
+def nome_en(s: str) -> str:
+    # NULL e nao "?": name_en e UNIQUE e e a chave de juncao com o mcoc.app.
+    return "NULL" if s == SEM_NOME_EN else aspas(s)
 
 
 def gerar(rows: list[dict]) -> str:
@@ -68,7 +75,7 @@ def gerar(rows: list[dict]) -> str:
             pad(aspas(r["classe"]) + ",", 11),
             pad(r["nota_ataque"].replace(",", ".") + ",", 6),
             pad(r["sig_recomendado"] + ",", 5),
-            pad(aspas(r["nome_en"]) + ",", 34)
+            pad(nome_en(r["nome_en"]) + ",", 34)
             + ("false" if r["sem_7_estrelas"] == "sim" else "true"),
         )
         for r in rows
@@ -87,6 +94,10 @@ def gerar(rows: list[dict]) -> str:
 -- rode de novo. Os ids nao mudam, entao os rosters continuam apontando para
 -- os mesmos campeoes.
 --
+-- Renomear um campeao na planilha tambem funciona: antes do upsert, a linha
+-- que ja tem o mesmo name_en recebe o nome novo. Sem isso o ON CONFLICT (name)
+-- nao a acharia, tentaria inserir outra e violaria o UNIQUE de name_en.
+--
 -- Nao apaga nada: um campeao que saia das fontes permanece no catalogo.
 --
 -- ORDEM: exige a migration 007 (name_en, has_7star). Se as linhas de amostra
@@ -96,8 +107,8 @@ def gerar(rows: list[dict]) -> str:
 --
 -- COMO AS NOTAS FORAM OBTIDAS
 -- Media 50/50 do percentil de duas tier lists independentes: a do dono e a do
--- mcoc.app (letras S+..F, ela propria consenso de dois criadores). Percentil e
--- nao nota crua porque as escalas diferem — comparar "9,5" com "S" nao teria
+-- mcoc.app (score 0-100, ele proprio consenso de quatro criadores). Percentil
+-- e nao nota crua porque as escalas diferem — comparar "9,5" com 82 nao teria
 -- significado. As faixas mantiveram o tamanho original, entao mudou quem esta
 -- em cada uma, nao quantas vagas ela tem.
 --
@@ -106,19 +117,38 @@ def gerar(rows: list[dict]) -> str:
 -- e Valiant sem Battlegrounds nem Guerra de Alianca, onde teto de performance
 -- rende menos que utilidade pratica.
 --
+-- Campeoes fora do mcoc.app ficam so com a nota do dono e name_en NULL.
+--
 -- Faixas: {", ".join(f"{f} {conta[f]}" for f in FAIXAS if conta[f])}.
 -- Sem versao 7 estrelas (has_7star = false): {sem7}.
 
+BEGIN;
+
+-- A temporaria copia os tipos da tabela real (champion_class e enum): criada
+-- direto de VALUES ela teria text, e o INSERT ... SELECT nao converte sozinho.
+CREATE TEMP TABLE tier_list ON COMMIT DROP AS
+SELECT name, champion_class, attack_tier_score, attack_recommended_sig, name_en, has_7star
+FROM base_champions WITH NO DATA;
+
+INSERT INTO tier_list VALUES
+{",\n".join(linhas)};
+
+UPDATE base_champions b
+SET name = t.name
+FROM tier_list t
+WHERE b.name_en = t.name_en AND b.name <> t.name;
+
 INSERT INTO base_champions
   (name, champion_class, attack_tier_score, attack_recommended_sig, name_en, has_7star)
-VALUES
-{",\n".join(linhas)}
+SELECT * FROM tier_list
 ON CONFLICT (name) DO UPDATE SET
   champion_class         = EXCLUDED.champion_class,
   attack_tier_score      = EXCLUDED.attack_tier_score,
   attack_recommended_sig = EXCLUDED.attack_recommended_sig,
   name_en                = EXCLUDED.name_en,
   has_7star              = EXCLUDED.has_7star;
+
+COMMIT;
 """
 
 
